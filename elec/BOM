@@ -1,0 +1,30 @@
+composant   boitier     quantité (fusex + minif)
+
+
+cartes extension
+
+SC18IS600   TSSOP16     3 + 3
+TLV1117-50  SOT-223     0 + 3
+tps2111     TSSOP-8     6 + 0
+
+
+C 10 uF     0805        6 + 5           en stock
+C 100 uF    1210        6 + 6
+C 100 nF    0805        12 + 0          en stock
+
+
+R 1k        0805        12 + 0          en stock
+R 4k7       0805        18 + 9
+R 10k       0805        21 + 12         en stock
+
+
+carte alim
+LM317       SOT-223     5 + 0
+
+
+C 100 nF    0805        5 + 0           en stock
+C 100 uF    1210        5 + 0           en stock
+
+R 240       0805        10 + 0
+
+Rvar 5k                 5 + 0           http://fr.farnell.com/bi-technologies-tt-electronics/43wr5klf/trimmer-cermet-11-tours-3mm-5k/dp/1520646

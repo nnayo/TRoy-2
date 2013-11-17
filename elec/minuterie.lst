@@ -1,0 +1,65 @@
+eeschema (2012-apr-16-27)-stable  >> Creation date: ven. 13 sept. 2013 18:52:48 CEST
+
+#Cmp ( ordre = Référence )
+| C1         10 uF       
+| C2         100 uF      
+| C3         100 nF      
+| C4         100 nF      
+| C5         C           
+| JP1        JUMPER      
+| JP2        JUMPER      
+| JP3        JUMPER      
+| K1         CONN_3      
+| P1         CONN_5X2    
+| P2         CONN_6      
+| P3         TST         
+| P4         TST         
+| P5         TST         
+| P6         CONN_10     
+| P7         CONN_4      
+| R1         R           
+| R2         R           
+| R3         R           
+| R4         R           
+| R5         R           
+| R6         R           
+| R7         R           
+| R8         R           
+| R9         R           
+| U1         TLV1117-33IDCY
+| U2         TPS2110     
+| U3         SC18IS600   
+#End Cmp
+
+#Cmp ( ordre = Valeur )
+| 10 uF        C1        
+| 100 nF       C3        
+| 100 nF       C4        
+| 100 uF       C2        
+| C            C5        
+| CONN_10      P6        
+| CONN_3       K1        
+| CONN_4       P7        
+| CONN_5X2     P1        
+| CONN_6       P2        
+| JUMPER       JP1       
+| JUMPER       JP2       
+| JUMPER       JP3       
+| R            R1        
+| R            R2        
+| R            R3        
+| R            R4        
+| R            R5        
+| R            R6        
+| R            R7        
+| R            R8        
+| R            R9        
+| SC18IS600    U3        
+| TLV1117-33IDCY U1        
+| TPS2110      U2        
+| TST          P3        
+| TST          P4        
+| TST          P5        
+#End Cmp
+
+#End List
