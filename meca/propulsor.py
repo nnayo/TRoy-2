@@ -1,47 +1,50 @@
 import Part
 from FreeCAD import Vector
-
-# propulseur Pro 54 3G
-propulsor_data = {
-    'len': 326., # mm
-    'diameter': 54., # mm
-    'butee diameter': 58., # mm
-    'butee thick': 9.5, # mm
-    'tuyere diameter': 32., # mm
-    'tuyere len': 13., # mm
-}
-
-guide_data = {
-    'thick': 2., # mm thickness of the guide wall
-}
+from base_component import MecaComponent
 
 
-def propulsor():
+class Propulsor(MecaComponent):
     """propulsor"""
-    prop = propulsor_data
 
-    # approximate the prop
-    body = Part.makeCylinder(prop['diameter'] / 2, prop['len'])
-    hold = Part.makeCylinder(prop['butee diameter'] / 2, prop['butee thick'])
-    hold.translate(Vector(0, 0, -prop['butee thick']))
-    tuyere = Part.makeCylinder(prop['tuyere diameter'] / 2, prop['tuyere len'])
-    tuyere.translate(Vector(0, 0, -prop['butee thick'] - prop['tuyere len']))
+    def __init__(self, doc, name='Pro_54_5G'):
+        # propulseur Pro 54 5G
+        self.data = {
+            'len': 488. + 16., # mm
+            'diameter': 54., # mm
+            'hold diameter': 58., # mm
+            'hold thick': 9.5, # mm
+            'tuyere diameter': 32., # mm
+            'tuyere len': 13., # mm
+        }
 
-    obj = body.fuse(hold)
-    obj = obj.fuse(tuyere)
+        # approximate the prop
+        prop = self.data
+        body = Part.makeCylinder(prop['diameter'] / 2, prop['len'])
+        hold = Part.makeCylinder(prop['hold diameter'] / 2, prop['hold thick'])
+        hold.translate(Vector(0, 0, -prop['hold thick']))
+        tuyere = Part.makeCylinder(prop['tuyere diameter'] / 2, prop['tuyere len'])
+        tuyere.translate(Vector(0, 0, -prop['hold thick'] - prop['tuyere len']))
 
-    return obj
+        comp = body.fuse(hold)
+        comp = comp.fuse(tuyere)
+
+        MecaComponent.__init__(self, doc, comp, name, (0.95, 1., 1.))
 
 
-def guide():
+class Guide(MecaComponent):
     """guide"""
-    prop = propulsor_data
 
-    # make the guide
-    propu = Part.makeCylinder(prop['diameter'] / 2, prop['len'])
+    def __init__(self, doc, prop, name='guide'):
+        self.data = {
+            'thick': 2.,                # mm thickness of the guide wall
+            'len' : prop['len'] + 2.    # mm thickness of the guide wall
+        }
 
-    obj = Part.makeCylinder(prop['diameter'] / 2 + guide_data['thick'], prop['len'])
-    obj = obj.cut(propu)
+        # make the guide
+        propu = Part.makeCylinder(prop['diameter'] / 2, prop['len'])
 
-    return obj
+        comp = Part.makeCylinder(prop['diameter'] / 2 + self.data['thick'], self.data['len'])
+        comp = comp.cut(propu)
+
+        MecaComponent.__init__(self, doc, comp, name, (0., 0., 0.))
 

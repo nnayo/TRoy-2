@@ -3,287 +3,296 @@ from FreeCAD import Vector
 
 import rocket_data as rd
 
-
-# profiles alu en U
-profile_data = {
-    'side': 20., # mm
-    'len': 2000., # mm
-    'thick': 1.5, # mm
-    'radius': 60.5 + 1.5 - 20., # mm // bague['len'] + thick - side
-}
-
-# bague de maintien
-bague_data = {
-    'thick': 10., # mm
-    'hole radius': 4., # mm
-    'side': profile_data['side'] - 2 * profile_data['thick'], # mm
-    'len': 60.5, # mm
-}
-
-# bague propulseur
-bague_propu_data = {
-    'ring radius': 39., # mm
-    'hole radius': 29., # mm
-    'offset z': 120. # mm
-}
-
-# disque de separation
-disque_data = {
-    'thick': 5., # mm
-    'hole radius': 30., # mm
-    'diameter': rd.skin['diameter'] + rd.skin['thick'], # mm
-}
-
-# ailerons
-fins_data = {
-    'len': 300., # mm
-    'e': 200., # mm
-    'p': 50., # mm
-    'm': 200., # mm
-    'thick': 3., # mm
-}
+from base_component import MecaComponent
 
 
-def profile():
-    """make a profile by extrusion"""
-    # retreive configuration
-    side = profile_data['side']
-    thick = profile_data['thick']
-    length = profile_data['len']
-    radius = profile_data['radius']
+class Profile(MecaComponent):
+    def __init__(self, doc, name='profile'):
+        # profiles alu en U
+        self.data = {
+            'side': 20., # mm
+            'len': 2000., # mm
+            'thick': 1.5, # mm
+            'radius': 60.5 + 1.5 - 20., # mm // bague['len'] + thick - side
+        }
 
-    # make profile shape
-    shape = []
-    shape.append(Part.makeLine((0, 0, 0), (side, 0, 0)))
-    shape.append(Part.makeLine((side, 0, 0), (side, side, 0)))
-    shape.append(Part.makeLine((side, side, 0), (0, side, 0)))
-    shape.append(Part.makeLine((0, side, 0), (0, side - thick, 0)))
-    shape.append(Part.makeLine((0, side - thick, 0), (side - thick, side - thick, 0)))
-    shape.append(Part.makeLine((side - thick, side - thick, 0), (side - thick, thick, 0)))
-    shape.append(Part.makeLine((side - thick, thick, 0), (0, thick, 0)))
-    shape.append(Part.makeLine((0, thick, 0), (0, 0, 0)))
+        """make a profile by extrusion"""
+        # retreive configuration
+        side = self.data['side']
+        thick = self.data['thick']
+        length = self.data['len']
 
-    wire = Part.Wire(shape)
-    face = Part.Face(wire)
-    profil = face.extrude(Vector(0, 0, length))
-    profil.translate(Vector(0, -side / 2, 0))
+        # make profile shape
+        shape = []
+        shape.append(Part.makeLine((0, 0, 0), (side, 0, 0)))
+        shape.append(Part.makeLine((side, 0, 0), (side, side, 0)))
+        shape.append(Part.makeLine((side, side, 0), (0, side, 0)))
+        shape.append(Part.makeLine((0, side, 0), (0, side - thick, 0)))
+        shape.append(Part.makeLine((0, side - thick, 0), (side - thick, side - thick, 0)))
+        shape.append(Part.makeLine((side - thick, side - thick, 0), (side - thick, thick, 0)))
+        shape.append(Part.makeLine((side - thick, thick, 0), (0, thick, 0)))
+        shape.append(Part.makeLine((0, thick, 0), (0, 0, 0)))
 
-    return profil
+        wire = Part.Wire(shape)
+        wire.translate(Vector(0, -side / 2, 0))
+        face = Part.Face(wire)
+        profil = face.extrude(Vector(0, 0, length))
+
+        MecaComponent.__init__(self, doc, profil, name, (0.95, 1., 1.))
 
 
-def bague():
+class Bague(MecaComponent):
     """make a bague by extrusion"""
-    # retreive configuration
-    side = bague_data['side']
-    thick = bague_data['thick']
-    length = bague_data['len']
 
-    # make bague shape
-    shape = []
+    def __init__(self, doc, profil, name='bague'):
+        self.data = {
+            'thick': 10., # mm
+            'hole radius': 4., # mm
+            'side': profil['side'] - 2 * profil['thick'], # mm
+            'len': 60.5, # mm
+        }
 
-    # first branch
-    shape.append(Vector(side, -side / 2, 0))
-    shape.append(Vector(length, -side / 2, 0))
-    shape.append(Vector(length, side / 2, 0))
-    shape.append(Vector(side, side / 2, 0))
+        side = self.data['side']
+        thick = self.data['thick']
+        length = self.data['len']
 
-    wire0 = Part.makePolygon(shape)
+        # make bague shape
+        shape = []
 
-    # 2nd and 3rd branches
-    wire1 = wire0.copy()
-    wire1.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120)
-    wire2 = wire0.copy()
-    wire2.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 240)
+        # first branch
+        shape.append(Vector(side, -side / 2, 0))
+        shape.append(Vector(length, -side / 2, 0))
+        shape.append(Vector(length, side / 2, 0))
+        shape.append(Vector(side, side / 2, 0))
 
-    # union of all branches
-    wire = wire0.fuse(wire1)
-    wire = wire.fuse(wire2)
-    vertexes = []
-    for edg in wire.Edges:
-        vertexes += edg.Vertexes
-    points = []
-    for vrt in vertexes:
-        points.append(vrt.Point)
-    points.append(points[0])    # close the wire
+        wire0 = Part.makePolygon(shape)
 
-    wire = Part.makePolygon(points)
-    face = Part.Face(wire)
+        # 2nd and 3rd branches
+        wire1 = wire0.copy()
+        wire1.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120)
+        wire2 = wire0.copy()
+        wire2.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 240)
 
-    # make the volume
-    bagu = face.extrude(Vector(0, 0, thick))
+        # union of all branches
+        wire = wire0.fuse(wire1)
+        wire = wire.fuse(wire2)
+        vertexes = []
+        for edg in wire.Edges:
+            vertexes += edg.Vertexes
+        points = []
+        for vrt in vertexes:
+            points.append(vrt.Point)
+        points.append(points[0])    # close the wire
 
-    # dig the hole
-    hole = Part.makeCylinder(bague_data['hole radius'], thick)
-    bagu = bagu.cut(hole)
+        wire = Part.makePolygon(points)
+        face = Part.Face(wire)
 
-    return bagu
+        # make the volume
+        bague = face.extrude(Vector(0, 0, thick))
+
+        # dig the hole
+        hole = Part.makeCylinder(self.data['hole radius'], thick)
+        bague = bague.cut(hole)
+
+        MecaComponent.__init__(self, doc, bague, name, (0.95, 1., 1.))
 
 
-def bague_propu():
+class BaguePropulsor(MecaComponent):
     """most complicated bague"""
     # TODO
-    # retreive configuration
-    side = bague_data['side']
-    thick = bague_data['thick']
-    length = bague_data['len']
+    def __init__(self, doc, profil, name='bague propulsor'):
+        self.data = {
+            'thick': 10., # mm
+            'side': profil['side'] - 2 * profil['thick'], # mm
+            'len': 60.5, # mm
+            'ring radius': 39., # mm
+            'hole radius': 29., # mm
+            'offset z': 120. # mm
+        }
 
-    # make bague shape
-    shape = []
+        base = self.data['ring radius'] - self.data['side']
+        side = self.data['side']
+        thick = self.data['thick']
+        length = self.data['len']
+        
+        # make bague shape
+        shape = []
 
-    # first branch
-    shape.append(Vector(side, -side / 2, 0))
-    shape.append(Vector(length, -side / 2, 0))
-    shape.append(Vector(length, side / 2, 0))
-    shape.append(Vector(side, side / 2, 0))
+        # first branch
+        shape.append(Vector(base, -side / 2, 0))
+        shape.append(Vector(length, -side / 2, 0))
+        shape.append(Vector(length, side / 2, 0))
+        shape.append(Vector(base, side / 2, 0))
 
-    wire0 = Part.makePolygon(shape)
+        wire0 = Part.makePolygon(shape)
 
-    # 2nd and 3rd branches
-    wire1 = wire0.copy()
-    wire1.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120)
-    wire2 = wire0.copy()
-    wire2.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 240)
+        # 2nd and 3rd branches
+        wire1 = wire0.copy()
+        wire1.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120)
+        wire2 = wire0.copy()
+        wire2.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 240)
 
-    # union of all branches
-    wire = wire0.fuse(wire1)
-    wire = wire.fuse(wire2)
-    vertexes = []
-    for edg in wire.Edges:
-        vertexes += edg.Vertexes
-    points = []
-    for vrt in vertexes:
-        points.append(vrt.Point)
-    points.append(points[0])    # close the wire
+        # union of all branches
+        wire = wire0.fuse(wire1)
+        wire = wire.fuse(wire2)
+        vertexes = []
+        for edg in wire.Edges:
+            vertexes += edg.Vertexes
+        points = []
+        for vrt in vertexes:
+            points.append(vrt.Point)
+        points.append(points[0])    # close the wire
 
-    wire = Part.makePolygon(points)
-    face = Part.Face(wire)
+        wire = Part.makePolygon(points)
+        face = Part.Face(wire)
 
-    # make the volume
-    bagu = face.extrude(Vector(0, 0, thick))
+        # make the volume
+        branches = face.extrude(Vector(0, 0, thick))
 
-    # ring part
-    ring = Part.makeCylinder(bague_propu_data['ring radius'], thick)
-    bagu = bagu.fuse(ring)
+        # make the ring
+        bague = Part.makeCylinder(self.data['ring radius'], thick)
+        hole = Part.makeCylinder(self.data['hole radius'], thick)
+        bague = bague.fuse(branches)
+        bague = bague.cut(hole)
 
-    # dig the hole
-    hole = Part.makeCylinder(bague_propu_data['hole radius'], thick)
-    bagu = bagu.cut(hole)
-
-    return bagu
-
-
-
-
-def disque():
-    """make a disque by extrusion"""
-    # retreive configuration
-    side = profile_data['side']
-    radius = profile_data['radius']
-    thick = disque_data['thick']
-    diam = disque_data['diameter']
-
-    # use profile shape to make suppressed parts of the disque
-    shape = []
-
-    # 1st part
-    shape.append(Vector(radius, side / 2, 0))
-    shape.append(Vector(radius + diam, side / 2, 0))
-    shape.append(Vector(radius + diam, -side / 2, 0))
-    shape.append(Vector(radius, -side / 2, 0))
-    shape.append(Vector(radius, side / 2, 0))
-
-    wire0 = Part.makePolygon(shape)
-    face0 = Part.Face(wire0)
-
-    # 2nd and 3rd parts
-    face1 = Part.Face(wire0)
-    face2 = Part.Face(wire0)
-
-    # make the volumes
-    cut0 = face0.extrude(Vector(0, 0, thick))
-    cut0.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 0)
-
-    cut1 = face1.extrude(Vector(0, 0, thick))
-    cut1.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120)
-
-    cut2 = face2.extrude(Vector(0, 0, thick))
-    cut2.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 240)
-
-    # make the disque
-    disqu = Part.makeCylinder(diam / 2, thick)
-    disqu = disqu.cut(cut0)
-    disqu = disqu.cut(cut1)
-    disqu = disqu.cut(cut2)
-
-    # dig the hole
-    hole = Part.makeCylinder(disque_data['hole radius'], thick)
-    disqu = disqu.cut(hole)
-
-    return disqu
+        MecaComponent.__init__(self, doc, bague, name, (0.95, 1., 1.))
 
 
-def skin_item(length):
+class Disque(MecaComponent):
+    def __init__(self, doc, profil, skin, name='disque'):
+        """make a disque by extrusion"""
+
+        self.data = {
+            'thick': 5., # mm
+            'hole radius': 30., # mm
+            'diameter': skin['diameter'] + skin['thick'], # mm
+        }
+
+        side = profil['side']
+        radius = profil['radius']
+        thick = self.data['thick']
+        diam = self.data['diameter']
+
+        # use profile shape to make suppressed parts of the disque
+        shape = []
+
+        # 1st part
+        shape.append(Vector(radius, side / 2, 0))
+        shape.append(Vector(radius + diam, side / 2, 0))
+        shape.append(Vector(radius + diam, -side / 2, 0))
+        shape.append(Vector(radius, -side / 2, 0))
+        shape.append(Vector(radius, side / 2, 0))
+
+        wire0 = Part.makePolygon(shape)
+        face0 = Part.Face(wire0)
+
+        # 2nd and 3rd parts
+        face1 = Part.Face(wire0)
+        face2 = Part.Face(wire0)
+
+        # make the volumes
+        cut0 = face0.extrude(Vector(0, 0, thick))
+        cut0.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 0)
+
+        cut1 = face1.extrude(Vector(0, 0, thick))
+        cut1.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120)
+
+        cut2 = face2.extrude(Vector(0, 0, thick))
+        cut2.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 240)
+
+        # make the disque
+        disque = Part.makeCylinder(diam / 2, thick)
+        disque = disque.cut(cut0)
+        disque = disque.cut(cut1)
+        disque = disque.cut(cut2)
+
+        # dig the hole
+        hole = Part.makeCylinder(self.data['hole radius'], thick)
+        disque = disque.cut(hole)
+
+        MecaComponent.__init__(self, doc, disque, name, (0.95, 1., 1.))
+
+
+class SkinItem(MecaComponent):
     """make a skin item that fits between 2 profiles with the given length"""
-    # retreive configuration
-    side = profile_data['side']
-    radius = profile_data['radius']
-    diam_int = rd.skin['diameter']
-    diam_ext = rd.skin['diameter'] + rd.skin['thick']
+    def __init__(self, doc, length, profil, name='skin_item'):
+        self.data = {
+            'diameter': 123., # mm internal
+            'thick': 2., # mm
+            'len': length,  # mm
+        }
 
-    # use profile shape to make suppressed parts of the skin
-    shape = []
+        side = profil['side']
+        radius = profil['radius']
+        diam_int = self.data['diameter']
+        diam_ext = self.data['diameter'] + self.data['thick']
 
-    # 1st part
-    shape.append(Vector(radius, side / 2, 0))
-    shape.append(Vector(radius + diam_ext, side / 2, 0))
-    shape.append(Vector(radius + diam_ext, -side / 2, 0))
-    shape.append(Vector(radius, -side / 2, 0))
-    shape.append(Vector(radius, side / 2, 0))
+        # use profile shape to make suppressed parts of the skin
+        shape = []
 
-    wire0 = Part.makePolygon(shape)
-    face0 = Part.Face(wire0)
+        # 1st part
+        shape.append(Vector(radius, side / 2, 0))
+        shape.append(Vector(radius + diam_ext, side / 2, 0))
+        shape.append(Vector(radius + diam_ext, -side / 2, 0))
+        shape.append(Vector(radius, -side / 2, 0))
+        shape.append(Vector(radius, side / 2, 0))
 
-    # 2nd part
-    face1 = Part.Face(wire0)
+        wire0 = Part.makePolygon(shape)
+        face0 = Part.Face(wire0)
 
-    # make the volumes
-    cut0 = face0.extrude(Vector(0, 0, length))
-    cut0.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 0)
+        # 2nd part
+        face1 = Part.Face(wire0)
 
-    cut1 = face1.extrude(Vector(0, 0, length))
-    cut1.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120)
+        # make the volumes
+        cut0 = face0.extrude(Vector(0, 0, length))
+        cut0.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 0)
 
-    # make the skin
-    skin_ext = Part.makeCylinder(diam_ext / 2, length, Vector(0, 0, 0), Vector(0, 0, 1), 120)
-    skin_int = Part.makeCylinder(diam_int / 2, length, Vector(0, 0, 0), Vector(0, 0, 1), 120)
-    skin = skin_ext.cut(skin_int)
+        cut1 = face1.extrude(Vector(0, 0, length))
+        cut1.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120)
 
-    # suppress the profiles shape
-    skin = skin.cut(cut0)
-    skin = skin.cut(cut1)
+        # make the skin
+        skin_ext = Part.makeCylinder(diam_ext / 2, length, Vector(0, 0, 0), Vector(0, 0, 1), 120)
+        skin_int = Part.makeCylinder(diam_int / 2, length, Vector(0, 0, 0), Vector(0, 0, 1), 120)
+        skin = skin_ext.cut(skin_int)
 
-    return skin
+        # suppress the profiles shape
+        skin = skin.cut(cut0)
+        skin = skin.cut(cut1)
+
+        MecaComponent.__init__(self, doc, skin, name, (0., 0., 0.))
 
 
-def fin():
+class Fin(MecaComponent):
     """make a fin"""
-    # use profile shape to make suppressed parts of the skin
-    shape = []
+    def __init__(self, doc, name='fin'):
+        # ailerons
+        self.data = {
+            'len': 300., # mm
+            'e': 200., # mm
+            'p': 50., # mm
+            'm': 200., # mm
+            'thick': 3., # mm
+        }
 
-    # 1st part
-    shape.append(Vector(0, 0, 0))
-    shape.append(Vector(0, 0, fins_data['len']))
-    shape.append(Vector(fins_data['e'], 0, fins_data['len'] - fins_data['p']))
-    shape.append(Vector(fins_data['e'], 0, fins_data['len'] - fins_data['p'] - fins_data['m']))
-    shape.append(Vector(0, 0, 0))
+        # use profile shape to make suppressed parts of the skin
+        shape = []
 
-    wire = Part.makePolygon(shape)
-    face = Part.Face(wire)
+        # 1st part
+        shape.append(Vector(0, 0, 0))
+        shape.append(Vector(0, 0, self.data['len']))
+        shape.append(Vector(self.data['e'], 0, self.data['len'] - self.data['p']))
+        shape.append(Vector(self.data['e'], 0, self.data['len'] - self.data['p'] - self.data['m']))
+        shape.append(Vector(0, 0, 0))
 
-    # make the volume
-    _fin = face.extrude(Vector(0, fins_data['thick'], 0))
+        wire = Part.makePolygon(shape)
+        # center it
+        wire.translate(Vector(0, - self.data['thick'] / 2, 0))
+        face = Part.Face(wire)
 
-    # center it
-    _fin.translate(Vector(0, - fins_data['thick'] / 2, 0))
+        # make the volume
+        comp = face.extrude(Vector(0, self.data['thick'], 0))
 
-    return _fin
+        # center it
+        #comp.translate(Vector(0, - self.data['thick'] / 2, 0))
+
+        MecaComponent.__init__(self, doc, comp, name, (0.95, 1., 1.))

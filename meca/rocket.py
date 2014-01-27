@@ -1,6 +1,7 @@
 import FreeCAD
 from FreeCAD import Vector
 import Part
+from math import cos, sin, pi
 
 import rocket_data as rd
 import profiles
@@ -9,75 +10,71 @@ import elec
 import parachute
 
 
-def profile_draw(doc):
+def profile_draw(doc, guide):
     # create and position 3 profiles
     for angle in range(0, 360, 120):
-        profil = profiles.profile()
-        profil.translate(Vector(profiles.profile_data['radius'], 0, 0))
-        profil.rotate(Vector(0, 0, 0), Vector(0, 0, 1), angle)
-        doc.addObject("Part::Feature", "profile %d" % angle).Shape = profil
+        profil = profiles.Profile(doc, name='profile_%d' % angle)
+        radius = profil['radius']
+        profil.translate(Vector(radius * cos(2 * pi * angle / 360), radius * sin(2 * pi * angle / 360), 0))
+        profil.rotate(Vector(0, 0, 1), angle)
 
     # creation and position of fins
     for angle in range(0, 360, 120):
-        fin = profiles.fin()
-        fin.translate(Vector(profiles.profile_data['radius'] + profiles.profile_data['side'], 0, 0))
-        fin.rotate(Vector(0, 0, 0), Vector(0, 0, 1), angle)
-        doc.addObject("Part::Feature", "fin %d" % angle).Shape = fin
+        fin = profiles.Fin(doc, "fin_%d" % angle)
+        radius = profil['radius'] + profil['side']
+        fin.translate(Vector(radius * cos(2 * pi * angle / 360), radius * sin(2 * pi * angle / 360), 0))
+        fin.rotate(Vector(0, 0, 1), angle)
+
+    return profil
+
+def disque_draw(doc, profil, skin):
+    # creation and position of propulsor bague and its disque
+    bague = profiles.BaguePropulsor(doc, profil, 'bague_propu')
+    bague.translate(Vector(0, 0, bague['offset z']))
+    disque = profiles.Disque(doc, profil, skin, "disque_%d" % bague['offset z'])
+    disque.translate(Vector(0, 0, bague['offset z'] + bague['thick']))
 
     # creation and position 3 bagues and 3 disques
-    total_len = propulsor.propulsor_data['len']
+    position = 477
 
-    bagu = profiles.bague()
-    bagu.translate(Vector(0, 0, total_len))
-    doc.addObject("Part::Feature", "bague %d" % total_len).Shape = bagu
-    total_len += profiles.bague_data['thick']
+    bague = profiles.Bague(doc, profil, "bague_%d" % position)
+    bague.translate(Vector(0, 0, position - bague['thick'] / 2))
 
-    disqu = profiles.disque()
-    disqu.translate(Vector(0, 0, total_len))
-    doc.addObject("Part::Feature", "disque %d" % total_len).Shape = disqu
-    total_len += profiles.disque_data['thick']
+    position += bague['thick'] / 2
+    disque = profiles.Disque(doc, profil, skin, "disque_%d" % position)
+    disque.translate(Vector(0, 0, position))
 
-    total_len += rd.case_equipement['len']
+    position = 1180
 
-    bagu = profiles.bague()
-    bagu.translate(Vector(0, 0, total_len))
-    doc.addObject("Part::Feature", "bague %d" % total_len).Shape = bagu
-    total_len += profiles.bague_data['thick']
+    bague = profiles.Bague(doc, profil, "bague_%d" % position)
+    bague.translate(Vector(0, 0, position - bague['thick'] / 2))
 
-    disqu = profiles.disque()
-    disqu.translate(Vector(0, 0, total_len))
-    doc.addObject("Part::Feature", "disque %d" % total_len).Shape = disqu
-    total_len += profiles.disque_data['thick']
+    position += bague['thick'] / 2
+    disque = profiles.Disque(doc, profil, skin, "disque_%d" % position)
+    disque.translate(Vector(0, 0, position))
 
-    total_len += rd.case_parachute['len']
+    position = 1745
 
-    bagu = profiles.bague()
-    bagu.translate(Vector(0, 0, total_len))
-    doc.addObject("Part::Feature", "bague %d" % total_len).Shape = bagu
-    total_len += profiles.bague_data['thick']
+    bague = profiles.Bague(doc, profil, "bague_%d" % position)
+    bague.translate(Vector(0, 0, position - bague['thick'] / 2))
 
-    disqu = profiles.disque()
-    disqu.translate(Vector(0, 0, total_len))
-    doc.addObject("Part::Feature", "disque %d" % total_len).Shape = disqu
-    total_len += profiles.disque_data['thick']
-
-    bagu = profiles.bague_propu()
-    bagu.translate(Vector(0, 0, profiles.bague_propu_data['offset z']))
-    doc.addObject("Part::Feature", "bague propu").Shape = bagu
+    position += bague['thick'] / 2
+    disque = profiles.Disque(doc, profil, skin, "disque_%d" % position)
+    disque.translate(Vector(0, 0, position))
 
 
 def prop_draw(doc):
     # create and position
 
     # propulsor
-    propu = propulsor.propulsor()
-    propu.translate(Vector(0, 0, 0))
-    doc.addObject("Part::Feature", "propu").Shape = propu
+    propu = propulsor.Propulsor(doc)
+    propu.translate(Vector(0, 0, -34.))
 
     # guide
-    guid = propulsor.guide()
-    guid.translate(Vector(0, 0, 0))
-    doc.addObject("Part::Feature", "guide").Shape = guid
+    guide = propulsor.Guide(doc, propu)
+    guide.translate(Vector(0, 0, -34.))
+
+    return guide
 
 
 def parachute_draw(doc):
@@ -236,26 +233,26 @@ def elec_draw(doc):
     FreeCAD.Gui.ActiveDocument.getObject("top_lo_storage_zone").Visibility = False
 
 
-def skin_draw(doc):
+def skin_draw(doc, profil):
     """draw each skin items"""
     # lower fin skins
     # TODO
 
     # upper fin skins
-    offset = profiles.fins_data['len'] / 2
+    offset = 120 + 10 + 5
     for i in range(3):
-        comp = profiles.skin_item(propulsor.propulsor_data['len'] - profiles.fins_data['len'] / 2 + profiles.bague_data['thick'])
-        comp.translate(Vector(0, 0, offset))
-        comp.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120 * i)
-        doc.addObject("Part::Feature", 'upper fin skin %d' % i).Shape = comp
+        skin_item = profiles.SkinItem(doc, 477 - 120 - 10, profil, 'upper_fin_skins_%d' % i)
+        skin_item.translate(Vector(0, 0, offset))
+        skin_item.rotate(Vector(0, 0, 1), 120 * i)
 
     # equipement skins
-    offset = propulsor.propulsor_data['len'] + profiles.bague_data['thick'] + profiles.disque_data['thick']
+    offset = 477 + 5 + 5
     for i in range(3):
-        comp = profiles.skin_item(rd.case_equipement['len'] + profiles.bague_data['thick'])
-        comp.translate(Vector(0, 0, offset))
-        comp.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120 * i)
-        doc.addObject("Part::Feature", 'equiment skin %d' % i).Shape = comp
+        skin_item = profiles.SkinItem(doc, 1180 - 477, profil, 'equipment_skins_%d' % i)
+        skin_item.translate(Vector(0, 0, offset))
+        skin_item.rotate(Vector(0, 0, 1), 120 * i)
+
+    return skin_item
 
     # parachute skins
     offset += rd.case_equipement['len'] + profiles.bague_data['thick'] + profiles.disque_data['thick']
@@ -278,11 +275,12 @@ def skin_draw(doc):
 
 
 def main(doc):
-    profile_draw(doc)
-    #prop_draw(doc)
+    guide = prop_draw(doc)
+    profil = profile_draw(doc, guide)
+    skin = skin_draw(doc, profil)
+    disque_draw(doc, profil, skin)
     #parachute_draw(doc)
-    elec_draw(doc)
-    #skin_draw(doc)
+    #elec_draw(doc)
 
     FreeCAD.Gui.SendMsgToActiveView("ViewFit")
 
@@ -290,6 +288,6 @@ def main(doc):
 if __name__ == "__main__":
     doc = FreeCAD.activeDocument()
     if doc == None:
-        doc = FreeCAD.newDocument()
+        doc = FreeCAD.newDocument('TRoy 2')
 
     main(doc)
