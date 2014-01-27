@@ -34,6 +34,12 @@ class MecaComponent:
 
         self.comp.Placement = self.pl
 
+    def place(self, pl):
+        """set the placement"""
+        self.pl = pl
+
+        self.comp.Placement = self.pl
+
     def __getitem__(self, item):
         """return dimension"""
         return self.data[item]
@@ -76,6 +82,13 @@ class ElecComponent:
     def rotate(self, vect, angle):
         """rotate component and box"""
         self.pl.Rotation = Rotation(vect, angle)
+
+        self.comp.Placement = self.pl
+        self.box.Placement = self.pl
+
+    def place(self, pl):
+        """set the placement"""
+        self.pl = pl
 
         self.comp.Placement = self.pl
         self.box.Placement = self.pl

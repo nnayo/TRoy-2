@@ -1,5 +1,6 @@
 import Part
 from FreeCAD import Vector
+
 from base_component import MecaComponent
 
 

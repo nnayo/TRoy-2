@@ -1,5 +1,5 @@
 import FreeCAD
-from FreeCAD import Vector
+from FreeCAD import Vector, Rotation, Placement
 import Part
 from math import cos, sin, pi
 
@@ -8,6 +8,9 @@ import profiles
 import propulsor
 import elec
 import parachute
+
+def vector_neg(vect):
+    return Vector(-vect.x, -vect.y, -vect.z)
 
 
 def profile_draw(doc, guide):
@@ -112,11 +115,31 @@ def parachute_draw(doc):
 
 
 def elec_draw(doc):
-    total_len = propulsor.propulsor_data['len'] + rd.case_equipement['len'] + rd.case_parachute['len']
-    total_len += 3 * profiles.bague_data['thick'] + 3 * profiles.disque_data['thick']
+    position = 1745 + 5 + 5
 
     # minut zone
-    for i in range(3):
+    for i in range(1, 3):
+        arduino = elec.Arduino(doc, 'minuterie_%d' % i)
+        translation = Vector(45, 20, position + 3 * elec.minut_zone_data['offset'])
+        rotation = Rotation(Vector(0, 0, 1), 60 + 120 * i)
+        placement = Placement(translation, rotation, vector_neg(translation))
+        arduino.place(placement)
+
+        connect = elec.ConnectCard(doc, 'connection_%d' % i)
+        translation = Vector(45, 0, position + elec.minut_zone_data['offset'])
+        rotation = Rotation(Vector(0, 0, 1), 60 + 120 * i)
+        placement = Placement(translation, rotation, vector_neg(translation))
+        connect.place(placement)
+
+        mpu = elec.Mpu(doc, 'mpu_%d' % i)
+        translation = (Vector(45, -15, position + 3 * elec.minut_zone_data['offset']))
+        rotation = Rotation(Vector(0, 0, 1), 60 + 120 * i)
+        placement = Placement(translation, rotation, vector_neg(translation))
+        mpu.place(placement)
+
+    total_len = 1745 + 5 + 5
+    # minut zone
+    for i in range(0, 1):
         comp = elec.arduino()
         comp.translate(Vector(45, 20, total_len + 3 * elec.minut_zone_data['offset']))
         comp.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 60 + 120 * i)
@@ -131,6 +154,8 @@ def elec_draw(doc):
         comp.translate(Vector(45, -15, total_len + 3 * elec.minut_zone_data['offset']))
         comp.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 60 + 120 * i)
         doc.addObject("Part::Feature", 'mpu %d' % i).Shape = comp
+
+    return
 
     total_len += elec.minut_zone_data['len']
 
@@ -241,46 +266,48 @@ def skin_draw(doc, profil):
     # upper fin skins
     offset = 120 + 10 + 5
     for i in range(3):
-        skin_item = profiles.SkinItem(doc, 477 - 120 - 10, profil, 'upper_fin_skins_%d' % i)
+        skin_item = profiles.SkinItem(doc, 477 - 120 - 10, profil, 'upper_fin_skin_%d' % i)
         skin_item.translate(Vector(0, 0, offset))
         skin_item.rotate(Vector(0, 0, 1), 120 * i)
 
     # equipement skins
     offset = 477 + 5 + 5
     for i in range(3):
-        skin_item = profiles.SkinItem(doc, 1180 - 477, profil, 'equipment_skins_%d' % i)
+        skin_item = profiles.SkinItem(doc, 1180 - 477 - 5, profil, 'equipment_skin_%d' % i)
         skin_item.translate(Vector(0, 0, offset))
         skin_item.rotate(Vector(0, 0, 1), 120 * i)
 
-    return skin_item
-
     # parachute skins
-    offset += rd.case_equipement['len'] + profiles.bague_data['thick'] + profiles.disque_data['thick']
+    offset = 1180 + 5 + 5
     for i in range(3):
-        comp = parachute.ecope()
-        comp.translate(Vector(0, 0, offset))
-        comp.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120 * i)
-        doc.addObject("Part::Feature", 'parachute skin %d' % i).Shape = comp
+        ecope = profiles.SkinItem(doc, 60, profil, 'ecope_%d' % i)
+        ecope.translate(Vector(0, 0, 1745 + 5 - ecope['len']))
+        ecope.rotate(Vector(0, 0, 1), 120 * i)
+
+        skin_item = profiles.SkinItem(doc, 1745 - 1180 - 5 - ecope['len'], profil, 'parachute_skin_%d' % i)
+        skin_item.translate(Vector(0, 0, offset))
+        skin_item.rotate(Vector(0, 0, 1), 120 * i)
 
     # lower cone skins
-    offset += rd.case_parachute['len'] + profiles.bague_data['thick'] + profiles.disque_data['thick']
+    offset = 1745 + 5 + 5
     for i in range(3):
-        comp = profiles.skin_item(profiles.profile_data['len'] - offset)
-        comp.translate(Vector(0, 0, offset))
-        comp.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120 * i)
-        doc.addObject("Part::Feature", 'lower cone skin %d' % i).Shape = comp
+        skin_item = profiles.SkinItem(doc, 2000 - 1745 - 5 - 5, profil, 'lower_cone_skin_%d' % i)
+        skin_item.translate(Vector(0, 0, offset))
+        skin_item.rotate(Vector(0, 0, 1), 120 * i)
 
     # upper cone skins
     # TODO
 
+    return skin_item
+
 
 def main(doc):
-    guide = prop_draw(doc)
-    profil = profile_draw(doc, guide)
-    skin = skin_draw(doc, profil)
-    disque_draw(doc, profil, skin)
+    #guide = prop_draw(doc)
+    #profil = profile_draw(doc, guide)
+    #skin = skin_draw(doc, profil)
+    #disque_draw(doc, profil, skin)
+    elec_draw(doc)
     #parachute_draw(doc)
-    #elec_draw(doc)
 
     FreeCAD.Gui.SendMsgToActiveView("ViewFit")
 
