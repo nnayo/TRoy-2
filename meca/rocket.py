@@ -262,7 +262,11 @@ def elec_draw(doc):
 def skin_draw(doc, profil):
     """draw each skin items"""
     # lower fin skins
-    # TODO
+    offset = -30
+    for i in range(3):
+        conic_skin_item = profiles.ConicSkinItem(doc, profil, 'lower_fin_skin_%d' % i)
+        conic_skin_item.translate(Vector(0, 0, offset))
+        conic_skin_item.rotate(Vector(0, 0, 1), 120 * i)
 
     # upper fin skins
     offset = 120 + 10 + 5
@@ -297,7 +301,22 @@ def skin_draw(doc, profil):
         skin_item.rotate(Vector(0, 0, 1), 120 * i)
 
     # upper cone skins
-    # TODO
+    offset = 2000
+
+    cone_top = profiles.Cone(doc, profil, 3)
+    cone_top.translate(Vector(0, 0, offset))
+
+    cone_side0 = profiles.Cone(doc, profil, 0)
+    cone_side0.translate(Vector(0, 0, offset))
+
+    cone_side1 = profiles.Cone(doc, profil, 1)
+    cone_side1.translate(Vector(0, 0, offset))
+
+    cone_side2 = profiles.Cone(doc, profil, 2)
+    cone_side2.translate(Vector(0, 0, offset))
+
+    cone_struct = profiles.Cone(doc, profil, 4)
+    cone_struct.translate(Vector(0, 0, offset))
 
     return skin_item
 
@@ -307,7 +326,7 @@ def main(doc):
     profil = profile_draw(doc, guide)
     skin = skin_draw(doc, profil)
     disque_draw(doc, profil, skin)
-    elec_draw(doc)
+    #elec_draw(doc)
     #parachute_draw(doc)
 
     FreeCAD.Gui.SendMsgToActiveView("ViewFit")

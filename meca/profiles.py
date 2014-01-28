@@ -1,7 +1,5 @@
 import Part
-from FreeCAD import Vector
-
-import rocket_data as rd
+from FreeCAD import Vector, Matrix
 
 from base_component import MecaComponent
 
@@ -213,6 +211,145 @@ class Disque(MecaComponent):
         MecaComponent.__init__(self, doc, disque, name, (0.95, 1., 1.))
 
 
+class Cone(MecaComponent):
+    """make a cone in 5 parts: 3 sides, 1 top and 1 holding structure"""
+    def __init__(self, doc, profil, part=None, name='cone'):
+        self.data = {
+            'diameter': 123., # mm internal
+            'thick': 2., # mm
+            'len_lo': 150,  # mm
+            'len_hi': 100,  # mm
+            'struct thick': 20., # mm
+        }
+
+        if part == None:
+            return
+
+        side = profil['side']
+        radius = profil['radius']
+        diam_int = self.data['diameter']
+        diam_ext = self.data['diameter'] + self.data['thick']
+        length = self.data['len_lo'] + self.data['len_hi']
+
+        # make the skin
+        skin_ext = Part.makeSphere(diam_ext / 2)
+        skin_int = Part.makeSphere(diam_int / 2)
+        skin = skin_ext.cut(skin_int)
+
+        # modify the sphere to make it a ellipsoid
+        matrix = Matrix()
+        matrix.scale(1., 1., length / (diam_ext / 2))
+        cone = skin.transformGeometry(matrix)
+
+        # suppress the lower half of the sphere
+        box = Part.makeBox(diam_ext, diam_ext, length)
+        box.translate(Vector(-diam_ext / 2, -diam_ext / 2, 0))
+
+        cone = cone.common(box)
+
+        # top part
+        if part == 3:
+            name = 'cone_top'
+            box.translate(Vector(0, 0, self.data['len_lo']))
+            cone = cone.common(box)
+
+            MecaComponent.__init__(self, doc, cone, name, (0., 0., 0.))
+            return
+
+        # use profile shape to make suppressed parts of the skin
+        shape = []
+
+        # full profil part
+        shape.append(Vector(radius, side / 2, 0))
+        shape.append(Vector(radius + diam_ext, side / 2, 0))
+        shape.append(Vector(radius + diam_ext, -side / 2, 0))
+        shape.append(Vector(radius, -side / 2, 0))
+        shape.append(Vector(radius, side / 2, 0))
+
+        wire0 = Part.makePolygon(shape)
+
+        face0 = Part.Face(wire0)
+        face1 = Part.Face(wire0)
+
+        # make the volumes
+        cut0 = face0.extrude(Vector(0, 0, length))
+        cut1 = face1.extrude(Vector(0, 0, length))
+
+        # create 1/3 cylinder
+        cylinder = Part.makeCylinder(diam_ext / 2, length, Vector(0, 0, 0), Vector(0, 0, 1), 120)
+
+        # one of the 3 sides
+        if part == 0:
+            name = 'cone_side0'
+            box.translate(Vector(0, 0, -self.data['len_hi']))
+            cone = cone.common(box)
+
+            # suppress the profiles shape
+            cut0.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 0)
+            cut1.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120)
+            cylinder.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 0)
+
+            cone = cone.cut(cut0)
+            cone = cone.cut(cut1)
+            cone = cone.common(cylinder)
+
+            MecaComponent.__init__(self, doc, cone, name, (0., 0., 0.))
+            return
+
+        elif part == 1:
+            name = 'cone_side1'
+            box.translate(Vector(0, 0, -self.data['len_hi']))
+            cone = cone.common(box)
+
+            # suppress the profiles shape
+            cut0.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120)
+            cut1.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 240)
+            cylinder.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120)
+
+            cone = cone.cut(cut0)
+            cone = cone.cut(cut1)
+            cone = cone.common(cylinder)
+
+            MecaComponent.__init__(self, doc, cone, name, (0., 0., 0.))
+            return
+
+        elif part == 2:
+            name = 'cone_side2'
+            box.translate(Vector(0, 0, -self.data['len_hi']))
+            cone = cone.common(box)
+
+            # suppress the profiles shape
+            cut0.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 240)
+            cut1.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 360)
+            cylinder.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 240)
+
+            cone = cone.cut(cut0)
+            cone = cone.cut(cut1)
+            cone = cone.common(cylinder)
+
+            MecaComponent.__init__(self, doc, cone, name, (0., 0., 0.))
+            return
+
+        elif part == 4:
+            name = 'cone_struct'
+
+            skin_int = Part.makeSphere(diam_int / 2)
+
+            # modify the sphere to make it a ellipsoid
+            matrix = Matrix()
+            matrix.scale(1., 1., length / (diam_ext / 2))
+            cone = skin_int.transformGeometry(matrix)
+
+            # suppress the lower half of the sphere
+            box = Part.makeBox(diam_ext, diam_ext, length)
+            box.translate(Vector(-diam_ext / 2, -diam_ext / 2, 0))
+
+            cone = cone.common(box)
+
+            MecaComponent.__init__(self, doc, cone, name, (1., 1., 0.))
+            return
+
+
 class SkinItem(MecaComponent):
     """make a skin item that fits between 2 profiles with the given length"""
     def __init__(self, doc, length, profil, name='skin_item'):
@@ -253,6 +390,59 @@ class SkinItem(MecaComponent):
         # make the skin
         skin_ext = Part.makeCylinder(diam_ext / 2, length, Vector(0, 0, 0), Vector(0, 0, 1), 120)
         skin_int = Part.makeCylinder(diam_int / 2, length, Vector(0, 0, 0), Vector(0, 0, 1), 120)
+        skin = skin_ext.cut(skin_int)
+
+        # suppress the profiles shape
+        skin = skin.cut(cut0)
+        skin = skin.cut(cut1)
+
+        MecaComponent.__init__(self, doc, skin, name, (0., 0., 0.))
+
+
+class ConicSkinItem(MecaComponent):
+    """make a conic skin item that fits between 2 profiles"""
+    def __init__(self, doc, profil, name='skin_item'):
+        self.data = {
+            'diameter_hi': 123., # mm internal
+            'diameter_lo': 62., # mm internal
+            'thick': 2., # mm
+            'len': 160,  # mm
+        }
+
+        side = profil['side']
+        radius = profil['radius']
+        diam_hi_int = self.data['diameter_hi']
+        diam_hi_ext = self.data['diameter_hi'] + self.data['thick']
+        diam_lo_int = self.data['diameter_lo']
+        diam_lo_ext = self.data['diameter_lo'] + self.data['thick']
+        length = self.data['len']
+
+        # use profile shape to make suppressed parts of the skin
+        shape = []
+
+        # 1st part
+        shape.append(Vector(radius, side / 2, 0))
+        shape.append(Vector(radius + diam_hi_ext, side / 2, 0))
+        shape.append(Vector(radius + diam_hi_ext, -side / 2, 0))
+        shape.append(Vector(radius, -side / 2, 0))
+        shape.append(Vector(radius, side / 2, 0))
+
+        wire0 = Part.makePolygon(shape)
+        face0 = Part.Face(wire0)
+
+        # 2nd part
+        face1 = Part.Face(wire0)
+
+        # make the volumes
+        cut0 = face0.extrude(Vector(0, 0, length))
+        cut0.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 0)
+
+        cut1 = face1.extrude(Vector(0, 0, length))
+        cut1.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120)
+
+        # make the skin
+        skin_ext = Part.makeCone(diam_lo_ext / 2, diam_hi_ext / 2, length, Vector(0, 0, 0), Vector(0, 0, 1), 120)
+        skin_int = Part.makeCone(diam_lo_int / 2, diam_hi_int / 2, length, Vector(0, 0, 0), Vector(0, 0, 1), 120)
         skin = skin_ext.cut(skin_int)
 
         # suppress the profiles shape
