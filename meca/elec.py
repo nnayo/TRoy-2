@@ -4,27 +4,6 @@ from FreeCAD import Vector
 from base_component import ElecComponent
 
 
-# ZigBee
-zbee_data = {
-    'x': 34., # mm
-    'y': 22., # mm
-    'z': 3., # mm
-}
-
-# carte SD
-sd_card_data = {
-    'x': 32., # mm
-    'y': 24., # mm
-    'z': 2., # mm
-}
-
-# carte puissance
-carte_regul_data = {
-    'r_ext': 30., # mm
-    'r_int': 15., # mm
-    'z': 5., # mm
-}
-
 # zones
 minut_zone_data = {
     'len': 60., # mm
@@ -39,7 +18,7 @@ regul_zone_data = {
 
 hi_storage_zone_data = {
     'len': 40., # mm
-    'offset': 10., # mm
+    'offset': 20., # mm
 }
 
 hf_zone_data = {
@@ -49,25 +28,8 @@ hf_zone_data = {
 
 lo_storage_zone_data = {
     'len': 40., # mm
-    'offset': 10., # mm
+    'offset': 20., # mm
 }
-
-
-def arduino():
-    """make an Arduino Pro mini"""
-
-    arduino_data = {
-        'x': 33. + 9., # mm (9 = rs connector)
-        'y': 18., # mm
-        'z': 2., # mm
-    }
-
-    ad = arduino_data
-    # make arduino
-    comp = Part.makeBox(ad['z'], ad['x'], ad['y'])
-    comp.translate(Vector(-ad['z'] / 2, -ad['x'] / 2, -ad['y'] / 2))
-
-    return comp
 
 
 class Arduino(ElecComponent):
@@ -75,13 +37,13 @@ class Arduino(ElecComponent):
     def __init__(self, doc, name='arduino'):
         data = {
             'x': 2., # mm
-            'y': 33. + 9., # mm (9 = rs connector)
-            'z': 18., # mm
+            'y': 33, # mm
+            'z': 18, # mm
         }
         self.data = data
         col_box = {
-            'x': 4., # mm
-            'y': 31., # mm (9 = rs connector)
+            'x': 6., # mm
+            'y': 31. + 9, # mm (9 = rs connector)
             'z': 16., # mm
         }
         self.col_box = col_box
@@ -92,41 +54,11 @@ class Arduino(ElecComponent):
         comp = comp.fuse(comp)
 
         # make its collision box
-        box = Part.makeBox(col_box['x'], col_box['y'] + 10, col_box['z'] + 9.)   # 9 mm rs connector
-        box.translate(Vector(-col_box['x'] / 2, -col_box['y'] / 2, -col_box['z'] / 2 - 9))
+        box = Part.makeBox(col_box['x'], col_box['y'], col_box['z'])   # 9 mm rs connector
+        box.translate(Vector(-col_box['x'] / 2, -col_box['y'] / 2 + 9, -col_box['z'] / 2))
         box = box.fuse(comp)
 
         ElecComponent.__init__(self, doc, comp, box, name, (0., 0.67, 0.))
-
-
-def connect_card():
-    """make an connection card"""
-
-    # connection card
-    connect_card_data = {
-        'x': 64., # mm
-        'y': 21., # mm
-        'z': 3., # mm
-    }
-
-    # connector
-    connector_data = {
-        'x': 20., # mm
-        'y': 6., # mm
-        'z': 15., # mm
-    }
-
-    # make card
-    comp = Part.makeBox(connect_card_data['z'], connect_card_data['x'], connect_card_data['y'])
-    comp.translate(Vector(-connect_card_data['z'] / 2, -connect_card_data['x'] / 2, -connect_card_data['y'] / 2))
-
-    # add connector
-    connect = Part.makeBox(connector_data['z'], connector_data['x'], connector_data['y'])
-    connect.translate(Vector(0, 0, connector_data['y'] / 2))
-
-    comp = comp.fuse(connect)
-    comp.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 180)
-    return comp
 
 
 class ConnectCard(ElecComponent):
@@ -134,14 +66,14 @@ class ConnectCard(ElecComponent):
     def __init__(self, doc, name='connection_card'):
         data = {
             'x': 2., # mm
-            'y': 64., # mm
+            'y': 80., # mm
             'z': 21., # mm
         }
         self.data = data
         col_box = {
-            'x': 2., # mm
-            'y': 62., # mm
-            'z': 17., # mm
+            'x': 6., # mm
+            'y': 78., # mm
+            'z': 19., # mm
         }
         self.col_box = col_box
 
@@ -155,37 +87,21 @@ class ConnectCard(ElecComponent):
         # make board
         comp = Part.makeBox(data['x'], data['y'], data['z'])
         comp.translate(Vector(-data['x'] / 2, -data['y'] / 2, -data['z'] / 2))
-        comp = comp.fuse(comp)
 
         # add connector
         connect = Part.makeBox(connector_data['x'], connector_data['y'], connector_data['z'])
-        connect.translate(Vector(0, 0, connector_data['z'] / 2))
+        connect.translate(Vector(data['x'] / 2, -data['y'] / 2 + 2, data['z'] / 2 - connector_data['z'] - 2))
         comp = comp.fuse(connect)
+
         comp.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 180)
+        comp = comp.fuse(comp)  # else rotate is not taken into account
 
         # make its collision box
-        box = Part.makeBox(col_box['x'], col_box['y'] + 10, col_box['z'])
+        box = Part.makeBox(col_box['x'], col_box['y'], col_box['z'])
         box.translate(Vector(-col_box['x'] / 2, -col_box['y'] / 2, -col_box['z'] / 2))
         box = box.fuse(comp)
 
         ElecComponent.__init__(self, doc, comp, box, name, (0., 0.67, 0.))
-
-
-def mpu():
-    """make a MPU card"""
-
-    # MPU
-    mpu_data = {
-        'x': 20., # mm
-        'y': 20., # mm
-        'z': 2., # mm
-    }
-
-    # make card
-    comp = Part.makeBox(mpu_data['x'], mpu_data['y'], mpu_data['z'])
-    comp.translate(Vector(-mpu_data['x'] / 2, -mpu_data['y'] / 2, -mpu_data['z'] / 2))
-
-    return comp
 
 
 class Mpu(ElecComponent):
@@ -210,7 +126,7 @@ class Mpu(ElecComponent):
         comp = comp.fuse(comp)
 
         # make its collision box
-        box = Part.makeBox(col_box['x'], col_box['y'], col_box['z'])
+        box = Part.makeBox(col_box['x'], col_box['y'], col_box['z'] + 1)
         box.translate(Vector(-col_box['x'] / 2, -col_box['y'] / 2 + 1, -col_box['z'] / 2))
         box = box.fuse(comp)
 
@@ -246,33 +162,105 @@ class Pile9V(ElecComponent):
         ElecComponent.__init__(self, doc, comp, box, name, (0., 0.33, 1.))
 
 
-def zigbee():
+class ZigBee(ElecComponent):
     """make a ZigBee card"""
 
-    # make card
-    comp = Part.makeBox(zbee_data['x'], zbee_data['y'], zbee_data['z'])
-    comp.translate(Vector(-zbee_data['x'] / 2, -zbee_data['y'] / 2, -zbee_data['z'] / 2))
+    def __init__(self, doc, name='zigbee'):
+        data = {
+            'x': 3., # mm
+            'y': 22., # mm
+            'z': 34., # mm
+        }
+        self.data = data
 
-    return comp
+        col_box = {
+            'x': 3., # mm
+            'y': 20., # mm
+            'z': 32., # mm
+        }
+        self.col_box = col_box
+
+        # make card
+        comp = Part.makeBox(data['x'], data['y'], data['z'])
+        comp.translate(Vector(-data['x'] / 2, -data['y'] / 2, -data['z'] / 2))
+
+        comp = comp.fuse(comp)
+
+        # make its collision box
+        box = Part.makeBox(col_box['x'], col_box['y'], col_box['z'] + 2)
+        box.translate(Vector(-col_box['x'] / 2, -col_box['y'] / 2, -col_box['z'] / 2))
+        box = box.fuse(comp)
+
+        ElecComponent.__init__(self, doc, comp, box, name, (0., 0.67, 0.))
 
 
-def sd_card():
-    """make a SD card"""
+class SdCard(ElecComponent):
+    """a SD card"""
 
-    # make card
-    comp = Part.makeBox(sd_card_data['z'], sd_card_data['x'], sd_card_data['y'])
-    comp.translate(Vector(-sd_card_data['z'] / 2, -sd_card_data['x'] / 2, -sd_card_data['y'] / 2))
+    def __init__(self, doc, name='SD_card'):
+        # carte SD
+        data = {
+            'x': 32., # mm
+            'y': 24., # mm
+            'z': 2., # mm
+        }
+        self.data = data
 
-    return comp
+        col_box = {
+            'x': 34., # mm
+            'y': 24., # mm
+            'z': 2., # mm
+        }
+        self.col_box = col_box
+
+        # make card
+        comp = Part.makeBox(data['z'], data['x'], data['y'])
+
+        comp.translate(Vector(-data['z'] / 2, -data['x'] / 2, -data['y'] / 2))
+        comp = comp.fuse(comp)
+
+        # make its collision box
+        box = Part.makeBox(col_box['z'], col_box['x'], col_box['y'])
+
+        box.translate(Vector(-col_box['x'] / 2 + 1, -col_box['y'] / 2, -col_box['z'] / 2))
+        box = box.fuse(comp)
+
+        ElecComponent.__init__(self, doc, comp, box, name, (0., 0.67, 0.))
 
 
-def carte_regul():
+class CarteRegul(ElecComponent):
     """carte regulation"""
 
-    # make carte
-    comp = Part.makeCylinder(carte_regul_data['r_ext'], carte_regul_data['z'])
-    comp = comp.cut(Part.makeCylinder(carte_regul_data['r_int'], carte_regul_data['z']))
+    def __init__(self, doc, name='regul'):
+        # carte puissance
+        data = {
+            'r_ext': 30., # mm
+            'r_int': 15., # mm
+            'z': 2., # mm
+        }
+        self.data = data
 
-    return comp
+        col_box = {
+            'r_ext': 29., # mm
+            'r_int': 16., # mm
+            'z': 8., # mm
+        }
+        self.col_box = col_box
+
+        # make board
+        comp = Part.makeCylinder(data['r_ext'], data['z'])
+        comp = comp.cut(Part.makeCylinder(data['r_int'], data['z']))
+
+        comp.translate(Vector(0, 0, -data['z'] / 2))
+        comp = comp.fuse(comp)
+
+        # make its collision box
+        box = Part.makeCylinder(col_box['r_ext'], col_box['z'])
+        box = box.cut(Part.makeCylinder(col_box['r_int'], col_box['z']))
+
+        box.translate(Vector(0, 0, -col_box['z'] / 2 + 2))
+        box = box.fuse(comp)
+
+        ElecComponent.__init__(self, doc, comp, box, name, (0., 0.67, 0.))
 
 

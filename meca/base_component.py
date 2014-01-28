@@ -67,10 +67,9 @@ class ElecComponent:
 
         self.box = doc.addObject("Part::Feature", name + '_box')
         self.box.Shape = box
+        Gui.ActiveDocument.getObject(name + "_box").Visibility = False
 
         self.pl = FreeCAD.Placement()
-
-        Gui.ActiveDocument.getObject(name + "_box").Visibility = False
 
     def translate(self, vect):
         """translate component and box"""

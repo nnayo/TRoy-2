@@ -118,142 +118,143 @@ def elec_draw(doc):
     position = 1745 + 5 + 5
 
     # minut zone
-    for i in range(1, 3):
+    offset_radius = 43
+    for i in range(0, 3):
         arduino = elec.Arduino(doc, 'minuterie_%d' % i)
-        translation = Vector(45, 20, position + 3 * elec.minut_zone_data['offset'])
+
+        translation = Vector(offset_radius, 20, position + 3 * elec.minut_zone_data['offset'])
         rotation = Rotation(Vector(0, 0, 1), 60 + 120 * i)
         placement = Placement(translation, rotation, vector_neg(translation))
         arduino.place(placement)
 
         connect = elec.ConnectCard(doc, 'connection_%d' % i)
-        translation = Vector(45, 0, position + elec.minut_zone_data['offset'])
+
+        translation = Vector(offset_radius, 0, position + elec.minut_zone_data['offset'])
         rotation = Rotation(Vector(0, 0, 1), 60 + 120 * i)
         placement = Placement(translation, rotation, vector_neg(translation))
         connect.place(placement)
 
         mpu = elec.Mpu(doc, 'mpu_%d' % i)
-        translation = (Vector(45, -15, position + 3 * elec.minut_zone_data['offset']))
+
+        translation = Vector(offset_radius, -15, position + 3 * elec.minut_zone_data['offset'])
         rotation = Rotation(Vector(0, 0, 1), 60 + 120 * i)
         placement = Placement(translation, rotation, vector_neg(translation))
         mpu.place(placement)
 
-    total_len = 1745 + 5 + 5
-    # minut zone
-    for i in range(0, 1):
-        comp = elec.arduino()
-        comp.translate(Vector(45, 20, total_len + 3 * elec.minut_zone_data['offset']))
-        comp.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 60 + 120 * i)
-        doc.addObject("Part::Feature", 'minuterie %d' % i).Shape = comp
-
-        comp = elec.connect_card()
-        comp.translate(Vector(45, 0, total_len + elec.minut_zone_data['offset']))
-        comp.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 60 + 120 * i)
-        doc.addObject("Part::Feature", 'connection %d' % i).Shape = comp
-
-        comp = elec.mpu()
-        comp.translate(Vector(45, -15, total_len + 3 * elec.minut_zone_data['offset']))
-        comp.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 60 + 120 * i)
-        doc.addObject("Part::Feature", 'mpu %d' % i).Shape = comp
-
-    return
-
-    total_len += elec.minut_zone_data['len']
+    # tag top of minut zone
+    position += elec.minut_zone_data['len']
 
     obj = Part.makeCylinder(200, 1)
-    obj.translate(Vector(0, 0, total_len))
+    obj.translate(Vector(0, 0, position))
     doc.addObject("Part::Feature", 'top_minut_zone').Shape = obj
     FreeCAD.Gui.ActiveDocument.getObject("top_minut_zone").Visibility = False
 
     # regul zone
+    offset_radius = 45
     for i in range(3):
         for j in range(3):
-            comp = elec.pile_9v()
-            comp.translate(Vector(45, 0, total_len + elec.regul_zone_data['offset pile']))
-            comp.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120 * i + 60 + 30 * j - 30)
-            doc.addObject("Part::Feature", 'pile 9v %d%d' % (i, j)).Shape = comp
+            pile = elec.Pile9V(doc, 'pile_9v_%d%d' % (i, j))
 
-    comp = elec.carte_regul()
-    comp.translate(Vector(0, 0, total_len + elec.regul_zone_data['offset carte']))
-    doc.addObject("Part::Feature", 'carte regulation').Shape = comp
+            translation = Vector(offset_radius, 0, position + elec.regul_zone_data['offset pile'])
+            rotation = Rotation(Vector(0, 0, 1), 120 * i + 60 + 30 * j - 30)
+            placement = Placement(translation, rotation, vector_neg(translation))
+            pile.place(placement)
 
-    total_len += elec.regul_zone_data['len']
+    carte = elec.CarteRegul(doc)
+    carte.translate(Vector(0, 0, position + elec.regul_zone_data['offset carte']))
 
+    position += elec.regul_zone_data['len']
+
+    # tag top of regul zone
     obj = Part.makeCylinder(200, 1)
-    obj.translate(Vector(0, 0, total_len))
+    obj.translate(Vector(0, 0, position))
     doc.addObject("Part::Feature", 'top_regul_zone').Shape = obj
     FreeCAD.Gui.ActiveDocument.getObject("top_regul_zone").Visibility = False
 
     # high storage zone
-    comp = elec.arduino()
-    comp.translate(Vector(20, 0, total_len + elec.hf_zone_data['offset']))
-    comp.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 60)
-    doc.addObject("Part::Feature", 'storage hi').Shape = comp
+    offset_radius = 25
+    ardu = elec.Arduino(doc, 'storage_hi')
+    translation = Vector(offset_radius, 0, position + elec.hi_storage_zone_data['offset'])
+    rotation = Rotation(Vector(0, 0, 1), 0)
+    placement = Placement(translation, rotation, vector_neg(translation))
+    ardu.place(placement)
 
-    comp = elec.connect_card()
-    comp.translate(Vector(20, 0, total_len + elec.hf_zone_data['offset']))
-    comp.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 60 + 240)
-    doc.addObject("Part::Feature", 'connection hi').Shape = comp
+    connect = elec.ConnectCard(doc, 'connection_hi')
+    translation = Vector(offset_radius, 0, position + elec.hi_storage_zone_data['offset'])
+    rotation = Rotation(Vector(0, 0, 1), 0 + 240)
+    placement = Placement(translation, rotation, vector_neg(translation))
+    connect.place(placement)
 
-    comp = elec.sd_card()
-    comp.translate(Vector(20, 0, total_len + elec.minut_zone_data['offset']))
-    comp.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 60 + 120)
-    doc.addObject("Part::Feature", 'sd card hi').Shape = comp
+    sd_card = elec.SdCard(doc, 'sd_card_hi')
+    translation = Vector(offset_radius, 0, position + elec.hi_storage_zone_data['offset'])
+    rotation = Rotation(Vector(0, 0, 1), 0 + 120)
+    placement = Placement(translation, rotation, vector_neg(translation))
+    sd_card.place(placement)
 
-    total_len += elec.hi_storage_zone_data['len']
+    position += elec.hi_storage_zone_data['len']
 
+    # tag top of high storage zone
     obj = Part.makeCylinder(200, 1)
-    obj.translate(Vector(0, 0, total_len))
+    obj.translate(Vector(0, 0, position))
     doc.addObject("Part::Feature", 'top_hi_storage_zone').Shape = obj
     FreeCAD.Gui.ActiveDocument.getObject("top_hi_storage_zone").Visibility = False
 
     # HF zone
-    comp = elec.arduino()
-    comp.translate(Vector(20, 0, total_len + elec.hf_zone_data['offset']))
-    comp.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 60)
-    doc.addObject("Part::Feature", 'hf').Shape = comp
+    offset_radius = 25
+    ardu = elec.Arduino(doc, 'hf')
+    translation = Vector(offset_radius, 0, position + elec.hf_zone_data['offset'])
+    rotation = Rotation(Vector(0, 0, 1), 0)
+    placement = Placement(translation, rotation, vector_neg(translation))
+    ardu.place(placement)
 
-    comp = elec.connect_card()
-    comp.translate(Vector(20, 0, total_len + elec.hf_zone_data['offset']))
-    comp.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 60 + 240)
-    doc.addObject("Part::Feature", 'connection hf').Shape = comp
+    connect = elec.ConnectCard(doc, 'connection_hf')
+    translation = Vector(offset_radius, 0, position + elec.hf_zone_data['offset'])
+    rotation = Rotation(Vector(0, 0, 1), 0 + 240)
+    placement = Placement(translation, rotation, vector_neg(translation))
+    connect.place(placement)
 
-    comp = elec.zigbee()
-    comp.rotate(Vector(0, 0, 0), Vector(0, 1, 0), 90)
-    comp.translate(Vector(20, 0, total_len + elec.minut_zone_data['offset']))
-    comp.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 60 + 120)
-    doc.addObject("Part::Feature", 'zigbee').Shape = comp
+    zigbee = elec.ZigBee(doc, 'zigbee')
+    translation = Vector(offset_radius, 0, position + elec.hf_zone_data['offset'])
+    rotation = Rotation(Vector(0, 0, 1), 0 + 120)
+    placement = Placement(translation, rotation, vector_neg(translation))
+    zigbee.place(placement)
 
-    total_len += elec.hf_zone_data['len']
+    position += elec.hf_zone_data['len']
 
+    # tag top of HF zone
     obj = Part.makeCylinder(200, 1)
-    obj.translate(Vector(0, 0, total_len))
+    obj.translate(Vector(0, 0, position))
     doc.addObject("Part::Feature", 'top_hf_zone').Shape = obj
     FreeCAD.Gui.ActiveDocument.getObject("top_hf_zone").Visibility = False
 
     # back to bottom
-    total_len = propulsor.propulsor_data['len']
-    total_len += profiles.bague_data['thick'] + profiles.disque_data['thick']
+    position = 477 + 5 + 5
 
     # low storage zone
-    comp = elec.arduino()
-    comp.translate(Vector(20, 0, total_len + elec.hf_zone_data['offset']))
-    comp.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 60)
-    doc.addObject("Part::Feature", 'storage lo').Shape = comp
+    offset_radius = 25
+    ardu = elec.Arduino(doc, 'storage_lo')
+    translation = Vector(offset_radius, 0, position + elec.hi_storage_zone_data['offset'])
+    rotation = Rotation(Vector(0, 0, 1), 0)
+    placement = Placement(translation, rotation, vector_neg(translation))
+    ardu.place(placement)
 
-    comp = elec.connect_card()
-    comp.translate(Vector(20, 0, total_len + elec.hf_zone_data['offset']))
-    comp.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 60 + 240)
-    doc.addObject("Part::Feature", 'connection lo').Shape = comp
+    connect = elec.ConnectCard(doc, 'connection_lo')
+    translation = Vector(offset_radius, 0, position + elec.hi_storage_zone_data['offset'])
+    rotation = Rotation(Vector(0, 0, 1), 0 + 240)
+    placement = Placement(translation, rotation, vector_neg(translation))
+    connect.place(placement)
 
-    comp = elec.sd_card()
-    comp.translate(Vector(20, 0, total_len + elec.minut_zone_data['offset']))
-    comp.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 60 + 120)
-    doc.addObject("Part::Feature", 'sd card lo').Shape = comp
+    sd_card = elec.SdCard(doc, 'sd_card_lo')
+    translation = Vector(offset_radius, 0, position + elec.hi_storage_zone_data['offset'])
+    rotation = Rotation(Vector(0, 0, 1), 0 + 120)
+    placement = Placement(translation, rotation, vector_neg(translation))
+    sd_card.place(placement)
 
-    total_len += elec.lo_storage_zone_data['len']
+    position += elec.lo_storage_zone_data['len']
 
+    # tag top of high storage zone
     obj = Part.makeCylinder(200, 1)
-    obj.translate(Vector(0, 0, total_len))
+    obj.translate(Vector(0, 0, position))
     doc.addObject("Part::Feature", 'top_lo_storage_zone').Shape = obj
     FreeCAD.Gui.ActiveDocument.getObject("top_lo_storage_zone").Visibility = False
 
@@ -302,10 +303,10 @@ def skin_draw(doc, profil):
 
 
 def main(doc):
-    #guide = prop_draw(doc)
-    #profil = profile_draw(doc, guide)
-    #skin = skin_draw(doc, profil)
-    #disque_draw(doc, profil, skin)
+    guide = prop_draw(doc)
+    profil = profile_draw(doc, guide)
+    skin = skin_draw(doc, profil)
+    disque_draw(doc, profil, skin)
     elec_draw(doc)
     #parachute_draw(doc)
 
