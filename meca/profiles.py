@@ -211,18 +211,49 @@ class Disque(MecaComponent):
         MecaComponent.__init__(self, doc, disque, name, (0.95, 1., 1.))
 
 
+def cone_top(cone, box, data):
+    """cone top part"""
+    name = 'cone_top'
+    box.translate(Vector(0, 0, data['len_lo']))
+    part = cone.common(box)
+
+    return name, part
+
+
+def cone_side(cone, box, data, index, cut, cylinder):
+    """cone side part"""
+    name = 'cone_side%d' % index
+    box = box.copy()
+    box.translate(Vector(0, 0, -data['len_hi']))
+    cone = cone.common(box)
+
+    # suppress the profiles shape
+    cut0 = cut.copy()
+    cut1 = cut.copy()
+    cylinder = cylinder.copy()
+    cut0.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 0 + 120 * index)
+    cut1.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120 + 120 * index)
+    cylinder.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 0 + 120 * index)
+
+    part = cone.cut(cut0)
+    part = part.cut(cut1)
+    part = part.common(cylinder)
+
+    return name, part
+
+
 class Cone(MecaComponent):
     """make a cone in 5 parts: 3 sides, 1 top and 1 holding structure"""
-    def __init__(self, doc, profil, part=None, name='cone'):
+    def __init__(self, doc, profil, index=None, name='cone'):
         self.data = {
             'diameter': 123., # mm internal
             'thick': 2., # mm
             'len_lo': 150,  # mm
             'len_hi': 100,  # mm
-            'struct thick': 20., # mm
+            'struct_thick': 20., # mm
         }
 
-        if part == None:
+        if index == None:
             return
 
         side = profil['side']
@@ -230,10 +261,13 @@ class Cone(MecaComponent):
         diam_int = self.data['diameter']
         diam_ext = self.data['diameter'] + self.data['thick']
         length = self.data['len_lo'] + self.data['len_hi']
+        struct_thick = self.data['struct_thick']
+
 
         # make the skin
         skin_ext = Part.makeSphere(diam_ext / 2)
         skin_int = Part.makeSphere(diam_int / 2)
+
         skin = skin_ext.cut(skin_int)
 
         # modify the sphere to make it a ellipsoid
@@ -242,16 +276,14 @@ class Cone(MecaComponent):
         cone = skin.transformGeometry(matrix)
 
         # suppress the lower half of the sphere
-        box = Part.makeBox(diam_ext, diam_ext, length)
-        box.translate(Vector(-diam_ext / 2, -diam_ext / 2, 0))
+        lower = Part.makeBox(diam_ext, diam_ext, length)
+        lower.translate(Vector(-diam_ext / 2, -diam_ext / 2, 0))
 
-        cone = cone.common(box)
+        cone = cone.common(lower)
 
         # top part
-        if part == 3:
-            name = 'cone_top'
-            box.translate(Vector(0, 0, self.data['len_lo']))
-            cone = cone.common(box)
+        if index == 3:
+            name, cone = cone_top(cone, lower, self.data)
 
             MecaComponent.__init__(self, doc, cone, name, (0., 0., 0.))
             return
@@ -266,87 +298,83 @@ class Cone(MecaComponent):
         shape.append(Vector(radius, -side / 2, 0))
         shape.append(Vector(radius, side / 2, 0))
 
-        wire0 = Part.makePolygon(shape)
+        wire = Part.makePolygon(shape)
 
-        face0 = Part.Face(wire0)
-        face1 = Part.Face(wire0)
+        face = Part.Face(wire)
 
-        # make the volumes
-        cut0 = face0.extrude(Vector(0, 0, length))
-        cut1 = face1.extrude(Vector(0, 0, length))
+        # make the volume
+        cut = face.extrude(Vector(0, 0, self.data['len_lo']))
 
         # create 1/3 cylinder
         cylinder = Part.makeCylinder(diam_ext / 2, length, Vector(0, 0, 0), Vector(0, 0, 1), 120)
 
         # one of the 3 sides
-        if part == 0:
-            name = 'cone_side0'
-            box.translate(Vector(0, 0, -self.data['len_hi']))
-            cone = cone.common(box)
+        if index == 0:
+            name, part = cone_side(cone, lower, self.data, index, cut, cylinder)
 
-            # suppress the profiles shape
-            cut0.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 0)
-            cut1.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120)
-            cylinder.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 0)
-
-            cone = cone.cut(cut0)
-            cone = cone.cut(cut1)
-            cone = cone.common(cylinder)
-
-            MecaComponent.__init__(self, doc, cone, name, (0., 0., 0.))
+            MecaComponent.__init__(self, doc, part, name, (0., 0., 0.))
             return
 
-        elif part == 1:
-            name = 'cone_side1'
-            box.translate(Vector(0, 0, -self.data['len_hi']))
-            cone = cone.common(box)
+        elif index == 1:
+            name, part = cone_side(cone, lower, self.data, index, cut, cylinder)
 
-            # suppress the profiles shape
-            cut0.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120)
-            cut1.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 240)
-            cylinder.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120)
-
-            cone = cone.cut(cut0)
-            cone = cone.cut(cut1)
-            cone = cone.common(cylinder)
-
-            MecaComponent.__init__(self, doc, cone, name, (0., 0., 0.))
+            MecaComponent.__init__(self, doc, part, name, (0., 0., 0.))
             return
 
-        elif part == 2:
-            name = 'cone_side2'
-            box.translate(Vector(0, 0, -self.data['len_hi']))
-            cone = cone.common(box)
+        elif index == 2:
+            name, part = cone_side(cone, lower, self.data, index, cut, cylinder)
 
-            # suppress the profiles shape
-            cut0.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 240)
-            cut1.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 360)
-            cylinder.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 240)
-
-            cone = cone.cut(cut0)
-            cone = cone.cut(cut1)
-            cone = cone.common(cylinder)
-
-            MecaComponent.__init__(self, doc, cone, name, (0., 0., 0.))
+            MecaComponent.__init__(self, doc, part, name, (0., 0., 0.))
             return
 
-        elif part == 4:
+        elif index == 4:
             name = 'cone_struct'
 
-            skin_int = Part.makeSphere(diam_int / 2)
+            struct = Part.makeSphere(diam_ext / 2)
 
             # modify the sphere to make it a ellipsoid
             matrix = Matrix()
             matrix.scale(1., 1., length / (diam_ext / 2))
-            cone = skin_int.transformGeometry(matrix)
+            struct = struct.transformGeometry(matrix)
 
             # suppress the lower half of the sphere
-            box = Part.makeBox(diam_ext, diam_ext, length)
-            box.translate(Vector(-diam_ext / 2, -diam_ext / 2, 0))
+            struct = struct.common(lower)
 
-            cone = cone.common(box)
+            # dig a hole in the structure
+            hole = Part.makeCylinder(diam_ext / 2 - struct_thick, self.data['len_lo'])
+            struct = struct.cut(hole)
 
-            MecaComponent.__init__(self, doc, cone, name, (1., 1., 0.))
+            hole = Part.makeCylinder(diam_ext / 2 - 2 * struct_thick, self.data['len_lo'] + struct_thick)
+            struct = struct.cut(hole)
+
+            # keep the top and the feet
+            foot0 = cut.copy()
+            foot0.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 0)
+            foot1 = cut.copy()
+            foot1.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120)
+            foot2 = cut.copy()
+            foot2.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 240)
+            top = Part.makeBox(diam_ext, diam_ext, 2 * struct_thick)
+            top.translate(Vector(-diam_ext / 2, -diam_ext / 2, self.data['len_lo'] - struct_thick))
+
+            keep = top.fuse(foot0)
+            keep = keep.fuse(foot1)
+            keep = keep.fuse(foot2)
+
+            struct = struct.common(keep)
+
+            # suppress sides and top part prints
+            _, top = cone_top(cone, lower, self.data)
+#            _, side0 = cone_side(cone, lower, self.data, 0, cut, cylinder)
+#            _, side1 = cone_side(cone, lower, self.data, 1, cut, cylinder)
+#            _, side2 = cone_side(cone, lower, self.data, 2, cut, cylinder)
+#
+            struct = struct.cut(top)
+#            struct = struct.cut(side0)
+#            struct = struct.cut(side1)
+#            struct = struct.cut(side2)
+
+            MecaComponent.__init__(self, doc, struct, name, (1., 1., 0.))
             return
 
 

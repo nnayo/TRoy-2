@@ -13,13 +13,16 @@ def vector_neg(vect):
     return Vector(-vect.x, -vect.y, -vect.z)
 
 
-def profile_draw(doc, guide):
+def profile_draw(doc):
     # create and position 3 profiles
     for angle in range(0, 360, 120):
         profil = profiles.Profile(doc, name='profile_%d' % angle)
         radius = profil['radius']
         profil.translate(Vector(radius * cos(2 * pi * angle / 360), radius * sin(2 * pi * angle / 360), 0))
         profil.rotate(Vector(0, 0, 1), angle)
+
+    return profil
+
 
     # creation and position of fins
     for angle in range(0, 360, 120):
@@ -76,8 +79,6 @@ def prop_draw(doc):
     # guide
     guide = propulsor.Guide(doc, propu)
     guide.translate(Vector(0, 0, -34.))
-
-    return guide
 
 
 def parachute_draw(doc):
@@ -261,6 +262,26 @@ def elec_draw(doc):
 
 def skin_draw(doc, profil):
     """draw each skin items"""
+    # upper cone skins
+    offset = 2000
+
+    cone_top = profiles.Cone(doc, profil, 3)
+    cone_top.translate(Vector(0, 0, offset))
+
+    cone_side0 = profiles.Cone(doc, profil, 0)
+    cone_side0.translate(Vector(0, 0, offset))
+
+    #cone_side1 = profiles.Cone(doc, profil, 1)
+    #cone_side1.translate(Vector(0, 0, offset))
+
+    #cone_side2 = profiles.Cone(doc, profil, 2)
+    #cone_side2.translate(Vector(0, 0, offset))
+
+    cone_struct = profiles.Cone(doc, profil, 4)
+    cone_struct.translate(Vector(0, 0, offset))
+
+    return
+
     # lower fin skins
     offset = -30
     for i in range(3):
@@ -322,10 +343,10 @@ def skin_draw(doc, profil):
 
 
 def main(doc):
-    guide = prop_draw(doc)
-    profil = profile_draw(doc, guide)
+    #prop_draw(doc)
+    profil = profile_draw(doc)
     skin = skin_draw(doc, profil)
-    disque_draw(doc, profil, skin)
+    #disque_draw(doc, profil, skin)
     #elec_draw(doc)
     #parachute_draw(doc)
 
