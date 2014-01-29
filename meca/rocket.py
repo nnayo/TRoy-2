@@ -3,7 +3,6 @@ from FreeCAD import Vector, Rotation, Placement
 import Part
 from math import cos, sin, pi
 
-import rocket_data as rd
 import profiles
 import propulsor
 import elec

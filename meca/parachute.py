@@ -1,7 +1,6 @@
 import Part
 from FreeCAD import Vector
 
-import rocket_data as rd
 import profiles
 
 
