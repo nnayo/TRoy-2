@@ -6,6 +6,9 @@ Gui = FreeCADGui
 def debug(obj):
     FreeCAD.Console.PrintError('%r :"%s" %r\n' % (obj, obj.__doc__, dir(obj)))
 
+def debug_shape(obj):
+    FreeCAD.activeDocument().addObject("Part::Feature", 'debug').Shape = obj
+
 
 class MecaComponent:
     """base for all mechanical component"""
