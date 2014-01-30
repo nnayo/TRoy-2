@@ -213,45 +213,194 @@ class Disque(MecaComponent):
         MecaComponent.__init__(self, doc, disque, name, (0.95, 1., 1.))
 
 
-def cone_top(cone, box, data):
-    """cone top part"""
-    name = 'cone_top'
+def cone_top_make(doc, gui_doc, data, skin, lower):
+    """make cone top part"""
+    cone = skin.copy()
+    box = lower.copy()
     box.translate(Vector(0, 0, data['len_lo']))
-    part = cone.common(box)
+    cone_top = cone.common(box)
 
-    return name, part
+    cone_top_obj = doc.addObject("Part::Feature", '_cone_top_base')
+    cone_top_obj.Shape = cone_top
+    gui_doc.getObject('_cone_top_base').Visibility = False
 
+    return cone_top
 
-def cone_side(cone, box, data, index, cut, cylinder):
-    """cone side part"""
-    name = 'cone_side%d' % index
-
-    cone_side_n = FreeCAD.activeDocument().getObject(name)
-    if cone_side_n:
-        return name, cone_side_n.Shape
+def cone_side_make(doc, gui_doc, skin, box, data, cut, cylinder):
+    """make cone side part"""
 
     box = box.copy()
     box.translate(Vector(0, 0, -data['len_hi']))
-    cone = cone.common(box)
+    skin = skin.common(box)
 
     # suppress the profiles shape
     cut0 = cut.copy()
     cut1 = cut.copy()
     cylinder = cylinder.copy()
-    cut0.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 0 + 120 * index)
-    cut1.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120 + 120 * index)
-    cylinder.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 0 + 120 * index)
+    cut0.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 0)
+    cut1.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120)
+    cylinder.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 0)
 
-    part = cone.copy()
+    part = skin.copy()
     part = part.common(cylinder)
     part = part.cut(cut0)
-    part = part.cut(cut1)
+    cone_side = part.cut(cut1)
 
-    return name, part
+    cone_side_obj = doc.addObject("Part::Feature", '_cone_side_base')
+    cone_side_obj.Shape = cone_side
+    gui_doc.getObject('_cone_side_base').Visibility = False
 
+    return cone_side
+
+
+def cone_struct_make(doc, gui_doc, cone_ext, cut, data, cone_top, cone_side):
+    """make cone struct part"""
+    diam_ext = data['diameter'] + data['thick']
+    struct_thick = data['struct_thick']
+
+    # dig a hole in the structure
+    hole = Part.makeCylinder(diam_ext / 2 - struct_thick, data['len_lo'])
+    cone_struct = cone_ext.cut(hole)
+
+    hole = Part.makeCylinder(diam_ext / 2 - 2 * struct_thick, data['len_lo'] + struct_thick)
+    cone_struct = cone_struct.cut(hole)
+
+    # keep the top and the feet
+    foot0 = cut.copy()
+    foot0.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 0)
+    foot1 = cut.copy()
+    foot1.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120)
+    foot2 = cut.copy()
+    foot2.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 240)
+    top = Part.makeBox(diam_ext, diam_ext, 2 * struct_thick)
+    top.translate(Vector(-diam_ext / 2, -diam_ext / 2, data['len_lo'] - struct_thick))
+
+    keep = top.fuse(foot0)
+    keep = keep.fuse(foot1)
+    keep = keep.fuse(foot2)
+
+    cone_struct = cone_struct.common(keep)
+
+    # suppress sides and top part prints
+    cone_struct = cone_struct.cut(cone_top)
+
+    side0 = cone_side.copy()
+    side0.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 0)
+    cone_struct = cone_struct.cut(side0)
+
+    side1 = cone_side.copy()
+    side1.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120)
+    cone_struct = cone_struct.cut(side1)
+
+    side2 = cone_side.copy()
+    side2.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 240)
+    cone_struct = cone_struct.cut(side2)
+
+    cone_struct_obj = doc.addObject("Part::Feature", '_cone_struct_base')
+    cone_struct_obj.Shape = cone_struct
+    gui_doc.getObject('_cone_struct_base').Visibility = False
+
+    return cone_struct
 
 def cone_setup(doc, profil, data):
     """create all the shapes needed for the cone parts"""
+
+    # if the final shapes already existed (true if one shape exists)
+    # return them immediatly
+    cone_top_obj = doc.getObject('_cone_top_base')
+    cone_side_obj = doc.getObject('_cone_side_base')
+    cone_struct_obj = doc.getObject('_cone_struct_base')
+
+    if cone_top_obj:
+        cone_top = cone_top_obj.Shape.copy()
+        cone_side0 = cone_side_obj.Shape.copy()
+        cone_side1 = cone_side_obj.Shape.copy()
+        cone_side2 = cone_side_obj.Shape.copy()
+        cone_struct = cone_struct_obj.Shape.copy()
+
+        return cone_top, cone_side0, cone_side1, cone_side2, cone_struct
+
+    side = profil['side']
+    radius = profil['radius']
+    diam_int = data['diameter']
+    diam_ext = data['diameter'] + data['thick']
+    length = data['len_lo'] + data['len_hi']
+
+    # to modify the sphere to make it a ellipsoid
+    matrix = Matrix()
+    matrix.scale(1., 1., length / (diam_ext / 2))
+
+    # to suppress the lower half of the sphere/ellipsoid
+    lower = Part.makeBox(diam_ext, diam_ext, length)
+    lower.translate(Vector(-diam_ext / 2, -diam_ext / 2, 0))
+
+    gui_doc = FreeCADGui.ActiveDocument
+
+    # make the external shape base of the cone
+    sphere = Part.makeSphere(diam_ext / 2)
+    sphere = sphere.transformGeometry(matrix)
+    cone_base_ext = sphere.common(lower)
+    cone_base_ext_obj = doc.addObject("Part::Feature", '_cone_base_ext')
+    cone_base_ext_obj.Shape = cone_base_ext
+    gui_doc.getObject('_cone_base_ext').Visibility = False
+
+    # make the internal shape base of the cone
+    sphere = Part.makeSphere(diam_int / 2)
+    sphere = sphere.transformGeometry(matrix)
+    cone_base_int = sphere.common(lower)
+    cone_base_int_obj = doc.addObject("Part::Feature", '_cone_base_int')
+    cone_base_int_obj.Shape = cone_base_int
+    gui_doc.getObject('_cone_base_int').Visibility = False
+
+    # make the skin
+    skin = cone_base_ext.cut(cone_base_int)
+    skin_obj = doc.addObject("Part::Feature", '_skin')
+    skin_obj.Shape = skin
+    gui_doc.getObject('_skin').Visibility = False
+
+    # use profile shape to make suppressed parts of the skin
+    shape = []
+
+    # full profil part
+    shape.append(Vector(radius, side / 2, 0))
+    shape.append(Vector(radius + diam_ext, side / 2, 0))
+    shape.append(Vector(radius + diam_ext, -side / 2, 0))
+    shape.append(Vector(radius, -side / 2, 0))
+    shape.append(Vector(radius, side / 2, 0))
+
+    wire = Part.makePolygon(shape)
+
+    face = Part.Face(wire)
+
+    # make the volume
+    cut_base = face.extrude(Vector(0, 0, data['len_lo']))
+    cut_obj = doc.addObject("Part::Feature", '_cut_base')
+    cut_obj.Shape = cut_base
+    gui_doc.getObject('_cut_base').Visibility = False
+
+    # create 1/3 cylinder
+    cylinder = Part.makeCylinder(diam_ext / 2, length, Vector(0, 0, 0), Vector(0, 0, 1), 120)
+    cylinder_obj = doc.addObject("Part::Feature", '_cylinder_1_3')
+    cylinder_obj.Shape = cylinder
+    gui_doc.getObject('_cylinder_1_3').Visibility = False
+
+    # make cone top part
+    cone_top = cone_top_make(doc, gui_doc, data, skin, lower)
+    cone_top = cone_top.copy()
+
+    cone_side = cone_side_make(doc, gui_doc, skin, lower, data, cut_base, cylinder)
+
+    cone_side0 = cone_side.copy()
+    cone_side0.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 0)
+    cone_side1 = cone_side.copy()
+    cone_side1.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120)
+    cone_side2 = cone_side.copy()
+    cone_side2.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 240)
+
+    cone_struct = cone_struct_make(doc, gui_doc, cone_base_ext, cut_base, data, cone_top, cone_side)
+
+    return cone_top, cone_side0, cone_side1, cone_side2, cone_struct
+
 
 class Cone(MecaComponent):
     """make a cone in 5 parts: 3 sides, 1 top and 1 holding structure"""
@@ -267,152 +416,29 @@ class Cone(MecaComponent):
         if index == None:
             return
 
-        side = profil['side']
-        radius = profil['radius']
-        diam_int = self.data['diameter']
-        diam_ext = self.data['diameter'] + self.data['thick']
-        length = self.data['len_lo'] + self.data['len_hi']
-        struct_thick = self.data['struct_thick']
-
-        # to modify the sphere to make it a ellipsoid
-        matrix = Matrix()
-        matrix.scale(1., 1., length / (diam_ext / 2))
-
-        # to suppress the lower half of the sphere/ellipsoid
-        lower = Part.makeBox(diam_ext, diam_ext, length)
-        lower.translate(Vector(-diam_ext / 2, -diam_ext / 2, 0))
-
-        # make the external shape base of the cone
-        cone_base_ext_obj = doc.getObject('cone_base_ext')
-
-        if not cone_base_ext_obj:
-            sphere = Part.makeSphere(diam_ext / 2)
-            sphere = sphere.transformGeometry(matrix)
-            cone_base_ext = sphere.common(lower)
-            cone_base_ext_obj = doc.addObject("Part::Feature", 'cone_base_ext')
-            cone_base_ext_obj.Shape = cone_base_ext
-            FreeCADGui.ActiveDocument.getObject('cone_base_ext').Visibility = False
-
-        cone_base_ext = cone_base_ext_obj.Shape
-
-        # make the internal shape base of the cone
-        cone_base_int_obj = doc.getObject('cone_base_int')
-
-        if not cone_base_int_obj:
-            sphere = Part.makeSphere(diam_int / 2)
-            sphere = sphere.transformGeometry(matrix)
-            cone_base_int = sphere.common(lower)
-            cone_base_int_obj = doc.addObject("Part::Feature", 'cone_base_int')
-            cone_base_int_obj.Shape = cone_base_int
-            FreeCADGui.ActiveDocument.getObject('cone_base_int').Visibility = False
-
-        cone_base_int = cone_base_int_obj.Shape
-
-        # make the skin
-        skin_obj = doc.getObject('skin')
-
-        if not skin_obj:
-            skin = cone_base_ext.cut(cone_base_int)
-            skin_obj = doc.addObject("Part::Feature", 'skin')
-            skin_obj.Shape = skin
-            FreeCADGui.ActiveDocument.getObject('skin').Visibility = False
-
-        skin = skin_obj.Shape
-
-        cone = skin.copy()
+        cone_top, cone_side0, cone_side1, cone_side2, cone_struct = \
+            cone_setup(doc, profil, self.data)
 
         # top part
         if index == 3:
-            name, cone = cone_top(cone, lower, self.data)
-
-            MecaComponent.__init__(self, doc, cone, name, (0., 0., 0.))
+            MecaComponent.__init__(self, doc, cone_top, 'cone_top', (0., 0., 0.))
             return
-
-        # use profile shape to make suppressed parts of the skin
-        shape = []
-
-        # full profil part
-        shape.append(Vector(radius, side / 2, 0))
-        shape.append(Vector(radius + diam_ext, side / 2, 0))
-        shape.append(Vector(radius + diam_ext, -side / 2, 0))
-        shape.append(Vector(radius, -side / 2, 0))
-        shape.append(Vector(radius, side / 2, 0))
-
-        wire = Part.makePolygon(shape)
-
-        face = Part.Face(wire)
-
-        # make the volume
-        cut = face.extrude(Vector(0, 0, self.data['len_lo']))
-
-        # create 1/3 cylinder
-        cylinder = Part.makeCylinder(diam_ext / 2, length, Vector(0, 0, 0), Vector(0, 0, 1), 120)
 
         # one of the 3 sides
         if index == 0:
-            name, part = cone_side(cone, lower, self.data, index, cut, cylinder)
-
-            MecaComponent.__init__(self, doc, part, name, (0., 0., 0.))
+            MecaComponent.__init__(self, doc, cone_side0, 'cone_side0', (0., 0., 0.))
             return
 
         elif index == 1:
-            name, part = cone_side(cone, lower, self.data, index, cut, cylinder)
-
-            MecaComponent.__init__(self, doc, part, name, (0., 0., 0.))
+            MecaComponent.__init__(self, doc, cone_side1, 'cone_side1', (0., 0., 0.))
             return
 
         elif index == 2:
-            name, part = cone_side(cone, lower, self.data, index, cut, cylinder)
-
-            MecaComponent.__init__(self, doc, part, name, (0., 0., 0.))
+            MecaComponent.__init__(self, doc, cone_side2, 'cone_side2', (0., 0., 0.))
             return
 
         elif index == 4:
-            name = 'cone_struct'
-
-            struct = Part.makeSphere(diam_ext / 2)
-
-            # modify the sphere to make it a ellipsoid
-            struct = struct.transformGeometry(matrix)
-
-            # suppress the lower half of the sphere
-            struct = struct.common(lower)
-
-            # dig a hole in the structure
-            hole = Part.makeCylinder(diam_ext / 2 - struct_thick, self.data['len_lo'])
-            struct = struct.cut(hole)
-
-            hole = Part.makeCylinder(diam_ext / 2 - 2 * struct_thick, self.data['len_lo'] + struct_thick)
-            struct = struct.cut(hole)
-
-            # keep the top and the feet
-            foot0 = cut.copy()
-            foot0.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 0)
-            foot1 = cut.copy()
-            foot1.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120)
-            foot2 = cut.copy()
-            foot2.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 240)
-            top = Part.makeBox(diam_ext, diam_ext, 2 * struct_thick)
-            top.translate(Vector(-diam_ext / 2, -diam_ext / 2, self.data['len_lo'] - struct_thick))
-
-            keep = top.fuse(foot0)
-            keep = keep.fuse(foot1)
-            keep = keep.fuse(foot2)
-
-            struct = struct.common(keep)
-
-            # suppress sides and top part prints
-            _, top = cone_top(cone, lower, self.data)
-            _, side0 = cone_side(cone, lower, self.data, 0, cut, cylinder)
-#            _, side1 = cone_side(cone, lower, self.data, 1, cut, cylinder)
-#            _, side2 = cone_side(cone, lower, self.data, 2, cut, cylinder)
-#
-            struct = struct.cut(top)
-            struct = struct.cut(side0)
-#            struct = struct.cut(side1)
-#            struct = struct.cut(side2)
-
-            MecaComponent.__init__(self, doc, struct, name, (1., 1., 0.))
+            MecaComponent.__init__(self, doc, cone_struct, 'cone_struct', (1., 1., 0.))
             return
 
 
