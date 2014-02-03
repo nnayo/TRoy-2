@@ -267,20 +267,26 @@ def skin_draw(doc, profil):
     cone_top = profiles.Cone(doc, profil, 3)
     cone_top.translate(Vector(0, 0, offset))
 
-    cone_side0 = profiles.Cone(doc, profil, 0)
-    cone_side0.translate(Vector(0, 0, offset))
-    cone_side0.rotate(Vector(0, 0, 1), 0)
-
-    cone_side1 = profiles.Cone(doc, profil, 1)
-    cone_side1.translate(Vector(0, 0, offset))
-    cone_side1.rotate(Vector(0, 0, 1), 120)
-
-    cone_side2 = profiles.Cone(doc, profil, 2)
-    cone_side2.translate(Vector(0, 0, offset))
-    cone_side2.rotate(Vector(0, 0, 1), 240)
-
+#    cone_side0 = profiles.Cone(doc, profil, 0)
+#    cone_side0.translate(Vector(0, 0, offset))
+#    cone_side0.rotate(Vector(0, 0, 1), 0)
+#
+#    cone_side1 = profiles.Cone(doc, profil, 1)
+#    cone_side1.translate(Vector(0, 0, offset))
+#    cone_side1.rotate(Vector(0, 0, 1), 120)
+#
+#    cone_side2 = profiles.Cone(doc, profil, 2)
+#    cone_side2.translate(Vector(0, 0, offset))
+#    cone_side2.rotate(Vector(0, 0, 1), 240)
+#
     cone_struct = profiles.Cone(doc, profil, 4)
     cone_struct.translate(Vector(0, 0, offset))
+
+    cone_top_thread = profiles.Cone(doc, profil, 5)
+    cone_top_thread.translate(Vector(0, 0, offset))
+
+    cone_struct_thread = profiles.Cone(doc, profil, 6)
+    cone_struct_thread.translate(Vector(0, 0, offset))
 
     return
 

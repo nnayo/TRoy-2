@@ -213,12 +213,22 @@ class Disque(MecaComponent):
         MecaComponent.__init__(self, doc, disque, name, (0.95, 1., 1.))
 
 
-def cone_top_make(doc, gui_doc, data, skin, lower):
+def cone_top_make(doc, gui_doc, data, skin, lower, cone_int, tube_cut, tube_thread):
     """make cone top part"""
     cone = skin.copy()
     box = lower.copy()
     box.translate(Vector(0, 0, data['len_lo']))
     cone_top = cone.common(box)
+
+    cut = tube_cut.copy()
+    cut.translate(Vector(0, 0, data['len_lo']))
+    support = cone_int.common(cut)
+
+    thread = tube_thread.copy()
+    thread.translate(Vector(0, 0, data['len_lo']))
+    support = support.cut(thread)
+
+    cone_top = cone_top.fuse(support)
 
     cone_top_obj = doc.addObject("Part::Feature", '_cone_top_base')
     cone_top_obj.Shape = cone_top
@@ -253,13 +263,13 @@ def cone_side_make(doc, gui_doc, skin, box, data, cut, cylinder):
     return cone_side
 
 
-def cone_struct_make(doc, gui_doc, cone_ext, cut, data, cone_top, cone_side):
+def cone_struct_make(doc, gui_doc, cone_ext, cut, data, cone_side, tube_cut):
     """make cone struct part"""
     diam_ext = data['diameter'] + data['thick']
     struct_thick = data['struct_thick']
 
     # dig a hole in the structure
-    hole = Part.makeCylinder(diam_ext / 2 - struct_thick, data['len_lo'])
+    hole = Part.makeCylinder(diam_ext / 2 - struct_thick, data['len_lo'] - struct_thick / 2)
     cone_struct = cone_ext.cut(hole)
 
     hole = Part.makeCylinder(diam_ext / 2 - 2 * struct_thick, data['len_lo'] + struct_thick)
@@ -282,7 +292,9 @@ def cone_struct_make(doc, gui_doc, cone_ext, cut, data, cone_top, cone_side):
     cone_struct = cone_struct.common(keep)
 
     # suppress sides and top part prints
-    cone_struct = cone_struct.cut(cone_top)
+    tube_cut = tube_cut.copy()
+    tube_cut.translate(Vector(0, 0, data['len_lo']))
+    cone_struct = cone_struct.cut(tube_cut)
 
     side0 = cone_side.copy()
     side0.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 0)
@@ -310,6 +322,8 @@ def cone_setup(doc, profil, data):
     cone_top_obj = doc.getObject('_cone_top_base')
     cone_side_obj = doc.getObject('_cone_side_base')
     cone_struct_obj = doc.getObject('_cone_struct_base')
+    cone_top_thread_obj = doc.getObject('_cone_top_thread')
+    cone_struct_thread_obj = doc.getObject('_cone_struct_thread')
 
     if cone_top_obj:
         cone_top = cone_top_obj.Shape.copy()
@@ -317,14 +331,18 @@ def cone_setup(doc, profil, data):
         cone_side1 = cone_side_obj.Shape.copy()
         cone_side2 = cone_side_obj.Shape.copy()
         cone_struct = cone_struct_obj.Shape.copy()
+        cone_top_thread = cone_top_thread_obj.Shape.copy()
+        cone_struct_thread = cone_struct_thread_obj.Shape.copy()
 
-        return cone_top, cone_side0, cone_side1, cone_side2, cone_struct
+        return cone_top, cone_side0, cone_side1, cone_side2, cone_struct, \
+                cone_top_thread, cone_struct_thread
 
     side = profil['side']
     radius = profil['radius']
     diam_int = data['diameter']
     diam_ext = data['diameter'] + data['thick']
     length = data['len_lo'] + data['len_hi']
+    struct_thick = data['struct_thick']
 
     # to modify the sphere to make it a ellipsoid
     matrix = Matrix()
@@ -384,8 +402,30 @@ def cone_setup(doc, profil, data):
     cylinder_obj.Shape = cylinder
     gui_doc.getObject('_cylinder_1_3').Visibility = False
 
+    # thread bases
+    radius_ext = diam_ext / 2 - struct_thick - 5
+    thread_ext = Part.makeHelix(8, struct_thick, radius_ext)
+    radius_int = diam_ext / 2 - struct_thick - 9
+    thread_int = Part.makeHelix(8, struct_thick, radius_int)
+
+    # tube to make the space for threads
+    tube_thread_ext = Part.makeCylinder(radius_ext, struct_thick)
+    tube_thread_int = Part.makeCylinder(radius_int, struct_thick)
+    tube_thread = tube_thread_ext.cut(tube_thread_int)
+    tube_thread_obj = doc.addObject("Part::Feature", '_tube_thread')
+    tube_thread_obj.Shape = tube_thread
+    gui_doc.getObject('_tube_thread').Visibility = False
+
+    # tube to cut the top of the structure
+    tube_cut_ext = Part.makeCylinder(diam_ext / 2 - struct_thick / 2, struct_thick)
+    tube_cut_int = tube_thread_int
+    tube_cut = tube_cut_ext.cut(tube_cut_int)
+    tube_cut_obj = doc.addObject("Part::Feature", '_tube_cut')
+    tube_cut_obj.Shape = tube_cut
+    gui_doc.getObject('_tube_cut').Visibility = False
+
     # make cone top part
-    cone_top = cone_top_make(doc, gui_doc, data, skin, lower)
+    cone_top = cone_top_make(doc, gui_doc, data, skin, lower, cone_base_int, tube_cut, tube_thread)
     cone_top = cone_top.copy()
 
     cone_side = cone_side_make(doc, gui_doc, skin, lower, data, cut_base, cylinder)
@@ -397,13 +437,50 @@ def cone_setup(doc, profil, data):
     cone_side2 = cone_side.copy()
     cone_side2.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 240)
 
-    cone_struct = cone_struct_make(doc, gui_doc, cone_base_ext, cut_base, data, cone_top, cone_side)
+    cone_struct = cone_struct_make(doc, gui_doc, cone_base_ext, cut_base, data, cone_side, tube_cut)
 
-    return cone_top, cone_side0, cone_side1, cone_side2, cone_struct
+    # internal thread profile
+    p0 = (radius_int, 0, 0)
+    p1 = (radius_int + 4, 0, 4)
+    p2 = (radius_int, 0, 8)
+
+    e0 = Part.makeLine(p0, p1)
+    e1 = Part.makeLine(p1, p2)
+    e2 = Part.makeLine(p2, p0)
+ 
+    section = Part.Wire([e0, e1, e2])
+
+    cone_top_thread = Part.Wire(thread_int).makePipeShell([section], 1, 1)
+    cone_top_thread.translate(Vector(0, 0, data['len_lo']))
+
+    cone_top_thread_obj = doc.addObject("Part::Feature", '_cone_top_thread')
+    cone_top_thread_obj.Shape = cone_top_thread
+    gui_doc.getObject('_cone_top_thread').Visibility = False
+
+    # external thread profile
+    p0 = (radius_ext, 0, 0)
+    p1 = (radius_ext - 4, 0, 4)
+    p2 = (radius_ext, 0, 8)
+
+    e0 = Part.makeLine(p0, p1)
+    e1 = Part.makeLine(p1, p2)
+    e2 = Part.makeLine(p2, p0)
+ 
+    section = Part.Wire([e0, e1, e2])
+
+    cone_struct_thread = Part.Wire(thread_ext).makePipeShell([section], 1, 1)
+    cone_struct_thread.translate(Vector(0, 0, data['len_lo']))
+
+    cone_struct_thread_obj = doc.addObject("Part::Feature", '_cone_struct_thread')
+    cone_struct_thread_obj.Shape = cone_struct_thread
+    gui_doc.getObject('_cone_struct_thread').Visibility = False
+
+    return cone_top, cone_side0, cone_side1, cone_side2, cone_struct, \
+            cone_top_thread, cone_struct_thread
 
 
 class Cone(MecaComponent):
-    """make a cone in 5 parts: 3 sides, 1 top and 1 holding structure"""
+    """make a cone in 7 parts: 3 sides, 1 top, 1 holding structure and 2 threads"""
     def __init__(self, doc, profil, index=None, name='cone'):
         self.data = {
             'diameter': 123., # mm internal
@@ -416,10 +493,11 @@ class Cone(MecaComponent):
         if index == None:
             return
 
-        cone_top, cone_side0, cone_side1, cone_side2, cone_struct = \
+        cone_top, cone_side0, cone_side1, cone_side2, cone_struct, \
+        cone_top_thread, cone_struct_thread = \
             cone_setup(doc, profil, self.data)
 
-        # top part
+        # the top part
         if index == 3:
             MecaComponent.__init__(self, doc, cone_top, 'cone_top', (0., 0., 0.))
             return
@@ -437,8 +515,19 @@ class Cone(MecaComponent):
             MecaComponent.__init__(self, doc, cone_side2, 'cone_side2', (0., 0., 0.))
             return
 
+        # the structure
         elif index == 4:
             MecaComponent.__init__(self, doc, cone_struct, 'cone_struct', (1., 1., 0.))
+            return
+
+        # the top part thread
+        elif index == 5:
+            MecaComponent.__init__(self, doc, cone_top_thread, 'cone_top_thread', (1., 1., 0.))
+            return
+
+        # the structure thread
+        elif index == 4:
+            MecaComponent.__init__(self, doc, cone_struct_thread, 'cone_struct_thread', (1., 1., 0.))
             return
 
 
