@@ -213,7 +213,7 @@ class Disque(MecaComponent):
         MecaComponent.__init__(self, doc, disque, name, (0.95, 1., 1.))
 
 
-def cone_top_make(doc, gui_doc, data, skin, lower, cone_int, tube_cut, tube_thread):
+def cone_top_make(doc, gui_doc, data, skin, lower, cone_int, tube_cut, tube_thread, tube_lock):
     """make cone top part"""
     cone = skin.copy()
     box = lower.copy()
@@ -230,13 +230,16 @@ def cone_top_make(doc, gui_doc, data, skin, lower, cone_int, tube_cut, tube_thre
 
     cone_top = cone_top.fuse(support)
 
+    lock = tube_lock.copy()
+    cone_top = cone_top.cut(lock)
+
     cone_top_obj = doc.addObject("Part::Feature", '_cone_top_base')
     cone_top_obj.Shape = cone_top
     gui_doc.getObject('_cone_top_base').Visibility = False
 
     return cone_top
 
-def cone_side_make(doc, gui_doc, skin, box, data, cut, cylinder):
+def cone_side_make(doc, gui_doc, skin, box, data, cone_base_int, cut, cylinder, tube_lock_int, tube_lock_ext):
     """make cone side part"""
 
     box = box.copy()
@@ -251,7 +254,12 @@ def cone_side_make(doc, gui_doc, skin, box, data, cut, cylinder):
     cut1.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120)
     cylinder.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 0)
 
+    # make the locking system
+    lock = cone_base_int.common(tube_lock_ext)
+    lock = lock.fuse(tube_lock_int)
+
     part = skin.copy()
+    part = part.fuse(lock)
     part = part.common(cylinder)
     part = part.cut(cut0)
     cone_side = part.cut(cut1)
@@ -263,7 +271,7 @@ def cone_side_make(doc, gui_doc, skin, box, data, cut, cylinder):
     return cone_side
 
 
-def cone_struct_make(doc, gui_doc, cone_ext, cut, data, cone_side, tube_cut):
+def cone_struct_make(doc, gui_doc, cone_ext, cut, data, cone_top, cone_side, tube_thread):
     """make cone struct part"""
     diam_ext = data['diameter'] + data['thick']
     struct_thick = data['struct_thick']
@@ -292,10 +300,6 @@ def cone_struct_make(doc, gui_doc, cone_ext, cut, data, cone_side, tube_cut):
     cone_struct = cone_struct.common(keep)
 
     # suppress sides and top part prints
-    tube_cut = tube_cut.copy()
-    tube_cut.translate(Vector(0, 0, data['len_lo']))
-    cone_struct = cone_struct.cut(tube_cut)
-
     side0 = cone_side.copy()
     side0.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 0)
     cone_struct = cone_struct.cut(side0)
@@ -307,6 +311,11 @@ def cone_struct_make(doc, gui_doc, cone_ext, cut, data, cone_side, tube_cut):
     side2 = cone_side.copy()
     side2.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 240)
     cone_struct = cone_struct.cut(side2)
+
+    cone_struct = cone_struct.cut(cone_top)
+    thread = tube_thread.copy()
+    thread.translate(Vector(0, 0, data['len_lo']))
+    cone_struct = cone_struct.cut(thread)
 
     cone_struct_obj = doc.addObject("Part::Feature", '_cone_struct_base')
     cone_struct_obj.Shape = cone_struct
@@ -376,10 +385,28 @@ def cone_setup(doc, profil, data):
     skin_obj.Shape = skin
     gui_doc.getObject('_skin').Visibility = False
 
-    # use profile shape to make suppressed parts of the skin
-    shape = []
+    # use profile shapes to make suppressed parts of the skin
 
     # full profil part
+    shape = []
+    shape.append(Vector(radius - 10, side / 2, 0))
+    shape.append(Vector(radius + diam_ext, side / 2, 0))
+    shape.append(Vector(radius + diam_ext, -side / 2, 0))
+    shape.append(Vector(radius - 10, -side / 2, 0))
+    shape.append(Vector(radius - 10, side / 2, 0))
+
+    wire = Part.makePolygon(shape)
+
+    face = Part.Face(wire)
+
+    # make the volume
+    long_cut_base = face.extrude(Vector(0, 0, length))
+    long_cut_obj = doc.addObject("Part::Feature", '_long_cut_base')
+    long_cut_obj.Shape = long_cut_base
+    gui_doc.getObject('_long_cut_base').Visibility = False
+
+    # full profil part
+    shape = []
     shape.append(Vector(radius, side / 2, 0))
     shape.append(Vector(radius + diam_ext, side / 2, 0))
     shape.append(Vector(radius + diam_ext, -side / 2, 0))
@@ -391,10 +418,10 @@ def cone_setup(doc, profil, data):
     face = Part.Face(wire)
 
     # make the volume
-    cut_base = face.extrude(Vector(0, 0, data['len_lo']))
-    cut_obj = doc.addObject("Part::Feature", '_cut_base')
-    cut_obj.Shape = cut_base
-    gui_doc.getObject('_cut_base').Visibility = False
+    short_cut_base = face.extrude(Vector(0, 0, data['len_lo']))
+    short_cut_obj = doc.addObject("Part::Feature", '_short_cut_base')
+    short_cut_obj.Shape = short_cut_base
+    gui_doc.getObject('_short_cut_base').Visibility = False
 
     # create 1/3 cylinder
     cylinder = Part.makeCylinder(diam_ext / 2, length, Vector(0, 0, 0), Vector(0, 0, 1), 120)
@@ -424,11 +451,28 @@ def cone_setup(doc, profil, data):
     tube_cut_obj.Shape = tube_cut
     gui_doc.getObject('_tube_cut').Visibility = False
 
+    # tube to make the locking of the cone
+    tube_lock_0 = Part.makeCylinder(diam_ext / 2 - struct_thick - 2, struct_thick / 2)
+    tube_lock_1 = Part.makeCylinder(diam_ext / 2 - struct_thick + 2, struct_thick / 2)
+    tube_lock_2 = Part.makeCylinder(diam_ext / 2, struct_thick / 4)
+
+    tube_lock_int = tube_lock_1.cut(tube_lock_0)
+    tube_lock_int.translate(Vector(0, 0, data['len_lo'] - 0.25 * data['struct_thick']))
+    tube_lock_obj = doc.addObject("Part::Feature", '_tube_lock_int')
+    tube_lock_obj.Shape = tube_lock_int
+    gui_doc.getObject('_tube_lock_int').Visibility = False
+
+    tube_lock_ext = tube_lock_2.cut(tube_lock_0)
+    tube_lock_ext.translate(Vector(0, 0, data['len_lo'] - 0.25 * data['struct_thick']))
+    tube_lock_obj = doc.addObject("Part::Feature", '_tube_lock_ext')
+    tube_lock_obj.Shape = tube_lock_ext
+    gui_doc.getObject('_tube_lock_ext').Visibility = False
+
     # make cone top part
-    cone_top = cone_top_make(doc, gui_doc, data, skin, lower, cone_base_int, tube_cut, tube_thread)
+    cone_top = cone_top_make(doc, gui_doc, data, skin, lower, cone_base_int, tube_cut, tube_thread, tube_lock_int)
     cone_top = cone_top.copy()
 
-    cone_side = cone_side_make(doc, gui_doc, skin, lower, data, cut_base, cylinder)
+    cone_side = cone_side_make(doc, gui_doc, skin, lower, data, cone_base_int, long_cut_base, cylinder, tube_lock_int, tube_lock_ext)
 
     cone_side0 = cone_side.copy()
     cone_side0.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 0)
@@ -437,7 +481,7 @@ def cone_setup(doc, profil, data):
     cone_side2 = cone_side.copy()
     cone_side2.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 240)
 
-    cone_struct = cone_struct_make(doc, gui_doc, cone_base_ext, cut_base, data, cone_side, tube_cut)
+    cone_struct = cone_struct_make(doc, gui_doc, cone_base_ext, short_cut_base, data, cone_top, cone_side, tube_thread)
 
     # internal thread profile
     p0 = (radius_int, 0, 0)
@@ -520,7 +564,7 @@ class Cone(MecaComponent):
 
         # the top part thread
         elif index == 5:
-            MecaComponent.__init__(self, doc, cone_top_thread, 'cone_top_thread', (1., 1., 0.))
+            MecaComponent.__init__(self, doc, cone_top_thread, 'cone_top_thread', (0., 0., 0.))
             return
 
         # the structure thread
