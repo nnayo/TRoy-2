@@ -284,9 +284,11 @@ def skin_draw(doc, profil):
 
     cone_top_thread = profiles.Cone(doc, profil, 5)
     cone_top_thread.translate(Vector(0, 0, offset))
+    cone_top_thread.translate(Vector(0, 0, offset + cone_top_thread['len_lo']))
 
     cone_struct_thread = profiles.Cone(doc, profil, 6)
-    cone_struct_thread.translate(Vector(0, 0, offset))
+    cone_struct_thread.translate(Vector(0, 0, offset + cone_struct_thread['len_lo']))
+    cone_struct_thread.rotate(Vector(0, 0, 1), 180)
 
     return
 

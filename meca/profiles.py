@@ -404,7 +404,7 @@ def cone_setup(doc, profil, data):
 
     # thread bases
     radius_ext = diam_ext / 2 - struct_thick - 5
-    thread_ext = Part.makeHelix(8, struct_thick, radius_ext)
+    thread_ext = Part.makeHelix(8, struct_thick - 8, radius_ext)
     radius_int = diam_ext / 2 - struct_thick - 9
     thread_int = Part.makeHelix(8, struct_thick, radius_int)
 
@@ -450,12 +450,11 @@ def cone_setup(doc, profil, data):
  
     section = Part.Wire([e0, e1, e2])
 
-    cone_top_thread = Part.Wire(thread_int).makePipeShell([section], 1, 1)
-    cone_top_thread.translate(Vector(0, 0, data['len_lo']))
+    cone_struct_thread = Part.Wire(thread_int).makePipeShell([section], 1, 1)
 
-    cone_top_thread_obj = doc.addObject("Part::Feature", '_cone_top_thread')
-    cone_top_thread_obj.Shape = cone_top_thread
-    gui_doc.getObject('_cone_top_thread').Visibility = False
+    cone_struct_thread_obj = doc.addObject("Part::Feature", '_cone_struct_thread')
+    cone_struct_thread_obj.Shape = cone_struct_thread.copy()
+    gui_doc.getObject('_cone_struct_thread').Visibility = False
 
     # external thread profile
     p0 = (radius_ext, 0, 0)
@@ -468,12 +467,11 @@ def cone_setup(doc, profil, data):
  
     section = Part.Wire([e0, e1, e2])
 
-    cone_struct_thread = Part.Wire(thread_ext).makePipeShell([section], 1, 1)
-    cone_struct_thread.translate(Vector(0, 0, data['len_lo']))
+    cone_top_thread = Part.Wire(thread_ext).makePipeShell([section], 1, 1)
 
-    cone_struct_thread_obj = doc.addObject("Part::Feature", '_cone_struct_thread')
-    cone_struct_thread_obj.Shape = cone_struct_thread
-    gui_doc.getObject('_cone_struct_thread').Visibility = False
+    cone_top_thread_obj = doc.addObject("Part::Feature", '_cone_top_thread')
+    cone_top_thread_obj.Shape = cone_top_thread.copy()
+    gui_doc.getObject('_cone_top_thread').Visibility = False
 
     return cone_top, cone_side0, cone_side1, cone_side2, cone_struct, \
             cone_top_thread, cone_struct_thread
@@ -526,7 +524,7 @@ class Cone(MecaComponent):
             return
 
         # the structure thread
-        elif index == 4:
+        elif index == 6:
             MecaComponent.__init__(self, doc, cone_struct_thread, 'cone_struct_thread', (1., 1., 0.))
             return
 
