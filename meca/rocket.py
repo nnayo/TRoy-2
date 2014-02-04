@@ -82,36 +82,17 @@ def prop_draw(doc):
 
 def parachute_draw(doc):
     """every thing related to parachute"""
-    # bottom of parachute case
-    total_len = propulsor.propulsor_data['len'] + rd.case_equipement['len']
-    total_len += 2 * profiles.bague_data['thick'] + 2 * profiles.disque_data['thick']
-    obj = Part.makeCylinder(200, 1)
-    obj.translate(Vector(0, 0, total_len))
-    doc.addObject("Part::Feature", 'bottom_parachute_case').Shape = obj
-    FreeCAD.Gui.ActiveDocument.getObject("bottom_parachute_case").Visibility = False
 
-    # top of parachute case
-    total_len += rd.case_parachute['len']
-    total_len += profiles.bague_data['thick'] + profiles.disque_data['thick']
-    obj = Part.makeCylinder(200, 1)
-    obj.translate(Vector(0, 0, total_len))
-    doc.addObject("Part::Feature", 'top_parachute_case').Shape = obj
-    FreeCAD.Gui.ActiveDocument.getObject("top_parachute_case").Visibility = False
+    position = 1745 - 5 - 10
 
-    total_len -= parachute.recup_system_data['len']
-    obj = Part.makeCylinder(200, 1)
-    obj.translate(Vector(0, 0, total_len))
-    doc.addObject("Part::Feature", 'bottom_recup_system').Shape = obj
-    FreeCAD.Gui.ActiveDocument.getObject("bottom_recup_system").Visibility = False
-
-    rsd = parachute.recup_system_data
     for i in range(3):
-        servo = parachute.servo()
-        servo.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 90)
-        servo.rotate(Vector(0, 0, 0), Vector(0, 1, 0), 90)
-        servo.translate(Vector(rsd['servo offset x'], rsd['servo offset y'], total_len + rsd['servo offset z']))
-        servo.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 60 + 120 * i)
-        doc.addObject("Part::Feature", 'servo %d' % i).Shape = servo
+        name = 'servo_%d' % i
+
+        servo = parachute.Servo(doc, name)
+        translation = Vector(-30, 0, position)
+        rotation = Rotation(Vector(0, 0, 1), 120 * i)
+        placement = Placement(translation, rotation, vector_neg(translation))
+        servo.place(placement)
 
 
 def elec_draw(doc):
@@ -261,37 +242,6 @@ def elec_draw(doc):
 
 def skin_draw(doc, profil):
     """draw each skin items"""
-    # upper cone skins
-    offset = 2000
-
-    cone_top = profiles.Cone(doc, profil, 3)
-    cone_top.translate(Vector(0, 0, offset))
-
-    cone_side0 = profiles.Cone(doc, profil, 0)
-    cone_side0.translate(Vector(0, 0, offset))
-    cone_side0.rotate(Vector(0, 0, 1), 0)
-
-    cone_side1 = profiles.Cone(doc, profil, 1)
-    cone_side1.translate(Vector(0, 0, offset))
-    cone_side1.rotate(Vector(0, 0, 1), 120)
-
-    cone_side2 = profiles.Cone(doc, profil, 2)
-    cone_side2.translate(Vector(0, 0, offset))
-    cone_side2.rotate(Vector(0, 0, 1), 240)
-
-    cone_struct = profiles.Cone(doc, profil, 4)
-    cone_struct.translate(Vector(0, 0, offset))
-
-    cone_top_thread = profiles.Cone(doc, profil, 5)
-    cone_top_thread.translate(Vector(0, 0, offset))
-    cone_top_thread.translate(Vector(0, 0, offset + cone_top_thread['len_lo']))
-
-    cone_struct_thread = profiles.Cone(doc, profil, 6)
-    cone_struct_thread.translate(Vector(0, 0, offset + cone_struct_thread['len_lo']))
-    cone_struct_thread.rotate(Vector(0, 0, 1), 180)
-
-    return
-
     # lower fin skins
     offset = -30
     for i in range(3):
@@ -324,6 +274,8 @@ def skin_draw(doc, profil):
         skin_item.translate(Vector(0, 0, offset))
         skin_item.rotate(Vector(0, 0, 1), 120 * i)
 
+    return skin_item
+
     # lower cone skins
     offset = 1745 + 5 + 5
     for i in range(3):
@@ -339,15 +291,26 @@ def skin_draw(doc, profil):
 
     cone_side0 = profiles.Cone(doc, profil, 0)
     cone_side0.translate(Vector(0, 0, offset))
+    cone_side0.rotate(Vector(0, 0, 1), 0)
 
     cone_side1 = profiles.Cone(doc, profil, 1)
     cone_side1.translate(Vector(0, 0, offset))
+    cone_side1.rotate(Vector(0, 0, 1), 120)
 
     cone_side2 = profiles.Cone(doc, profil, 2)
     cone_side2.translate(Vector(0, 0, offset))
+    cone_side2.rotate(Vector(0, 0, 1), 240)
 
     cone_struct = profiles.Cone(doc, profil, 4)
     cone_struct.translate(Vector(0, 0, offset))
+
+    cone_top_thread = profiles.Cone(doc, profil, 5)
+    cone_top_thread.translate(Vector(0, 0, offset))
+    cone_top_thread.translate(Vector(0, 0, offset + cone_top_thread['len_lo']))
+
+    cone_struct_thread = profiles.Cone(doc, profil, 6)
+    cone_struct_thread.translate(Vector(0, 0, offset + cone_struct_thread['len_lo']))
+    cone_struct_thread.rotate(Vector(0, 0, 1), 180)
 
     return skin_item
 
@@ -356,9 +319,9 @@ def main(doc):
     #prop_draw(doc)
     profil = profile_draw(doc)
     skin = skin_draw(doc, profil)
-    #disque_draw(doc, profil, skin)
+    disque_draw(doc, profil, skin)
     #elec_draw(doc)
-    #parachute_draw(doc)
+    parachute_draw(doc)
 
     FreeCAD.Gui.SendMsgToActiveView("ViewFit")
 

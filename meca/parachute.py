@@ -1,8 +1,7 @@
 import Part
 from FreeCAD import Vector
 
-import profiles
-
+from base_component import MecaComponent, debug, debug_shape
 
 recup_system_data = {
     'len': 60.0, # mm
@@ -11,56 +10,62 @@ recup_system_data = {
     'servo offset z': 33., # mm
 }
 
-# servo parallalax
-servo_data = {
-    'x': 40.5, # mm
-    'y': 20.0, # mm
-    'z': 36.1, # mm
-    'cylindre r': 10.0, # mm
-    'cylindre h': 6.0, # mm
-    'cylindre offset x': 30.1, # mm
-    'cylindre offset z': 36.1, # mm
-    'maintien x': 7.5, # mm
-    'maintien y': 20., # mm
-    'maintien z': 3.5, # mm
-    'maintien offset z': 26.6, # mm
-    'taquet x': 30.1, # mm
-    'taquet y': 5., # mm
-    'taquet z': 2., # mm
-}
-
 ecope_data = {
     'thick': 1., # mm thickness of the door wall
 }
 
 
-def servo():
+class Servo(MecaComponent):
     """servo"""
-    data = servo_data
+    def __init__(self, doc, name='servo'):
+        # servo parallalax
+        servo_data = {
+            'x': 40.5, # mm
+            'y': 20.0, # mm
+            'z': 36.1, # mm
+            'cylindre r': 10.0, # mm
+            'cylindre h': 6.0, # mm
+            'cylindre offset x': 30.1, # mm
+            'cylindre offset z': 36.1, # mm
+            'maintien x': 7.5, # mm
+            'maintien y': 20., # mm
+            'maintien z': 3.5, # mm
+            'maintien offset z': 26.6, # mm
+            'taquet x': 30.1, # mm
+            'taquet y': 5., # mm
+            'taquet z': 2., # mm
+        }
 
-    # approximate the servo
-    body = Part.makeBox(data['x'], data['y'], data['z'])
+        data = servo_data
 
-    maintien1 = Part.makeBox(data['maintien x'], data['maintien y'], data['maintien z'])
-    maintien1.translate(Vector(data['x'], 0, data['maintien offset z']))
-    maintien2 = Part.makeBox(data['maintien x'], data['maintien y'], data['maintien z'])
-    maintien2.translate(Vector(-data['maintien x'], 0, data['maintien offset z']))
+        # approximate the servo
+        body = Part.makeBox(data['x'], data['y'], data['z'])
 
-    cylindre = Part.makeCylinder(data['cylindre r'], data['cylindre h'])
-    cylindre.translate(Vector(data['cylindre offset x'], data['y'] / 2, data['cylindre offset z']))
+        maintien1 = Part.makeBox(data['maintien x'], data['maintien y'], data['maintien z'])
+        maintien1.translate(Vector(data['x'], 0, data['maintien offset z']))
+        maintien2 = Part.makeBox(data['maintien x'], data['maintien y'], data['maintien z'])
+        maintien2.translate(Vector(-data['maintien x'], 0, data['maintien offset z']))
 
-    taquet = Part.makeBox(data['taquet x'], data['taquet y'], data['taquet z'])
-    taquet.translate(Vector(-data['taquet y'] / 2, -data['taquet y'] / 2, 0))
-    taquet.rotate(Vector(0, 0, 0), Vector(0, 0, 1), -90)
-    taquet.translate(Vector(data['cylindre offset x'], data['y'] / 2, data['z'] + data['cylindre h']))
+        cylindre = Part.makeCylinder(data['cylindre r'], data['cylindre h'])
+        cylindre.translate(Vector(data['cylindre offset x'], data['y'] / 2, data['cylindre offset z']))
 
-    obj = body.fuse(maintien1)
-    obj = obj.fuse(maintien2)
-    obj = obj.fuse(cylindre)
-    obj = obj.fuse(taquet)
-    obj.translate(Vector(-data['x'] / 2, -data['y'] / 2, -data['z'] / 2))
+        taquet = Part.makeBox(data['taquet x'], data['taquet y'], data['taquet z'])
+        taquet.translate(Vector(-data['taquet y'] / 2, -data['taquet y'] / 2, 0))
+        taquet.rotate(Vector(0, 0, 0), Vector(0, 0, 1), -90)
+        taquet.translate(Vector(data['cylindre offset x'], data['y'] / 2, data['z'] + data['cylindre h']))
 
-    return obj
+        servo = body.fuse(maintien1)
+        servo = servo.fuse(maintien2)
+        servo = servo.fuse(cylindre)
+        servo = servo.fuse(taquet)
+
+        servo.translate(Vector(-data['x'] / 2, -data['y'] / 2, -data['z'] / 2))
+        servo.rotate(Vector(0, 0, 0), Vector(1, 0, 0), -90)
+        servo.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 90)
+        servo.rotate(Vector(0, 0, 0), Vector(1, 0, 0), 180)
+
+        servo = servo.common(servo)
+        MecaComponent.__init__(self, doc, servo, name, (0.95, 1., 1.))
 
 
 def ecope():
