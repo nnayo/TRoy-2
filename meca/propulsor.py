@@ -49,3 +49,55 @@ class Guide(MecaComponent):
 
         MecaComponent.__init__(self, doc, comp, name, (0., 0., 0.))
 
+
+class PropHoldItem(MecaComponent):
+    """make a propulsor hold item that fits in line with a profile"""
+    def __init__(self, doc, profil, name='prop_hold'):
+        self.data = {
+            'diameter_hi': 123., # mm internal
+            'diameter_lo': 62., # mm internal
+            'thick': 2., # mm
+            'len': 160,  # mm
+        }
+
+        side = profil['side']
+        radius = profil['radius']
+        diam_hi_int = self.data['diameter_hi']
+        diam_hi_ext = self.data['diameter_hi'] + self.data['thick']
+        diam_lo_int = self.data['diameter_lo']
+        diam_lo_ext = self.data['diameter_lo'] + self.data['thick']
+        length = self.data['len']
+
+        # use profile shape to make suppressed parts of the skin
+        shape = []
+
+        # 1st part
+        shape.append(Vector(radius - 20, side / 2, 0))
+        shape.append(Vector(radius + diam_hi_ext, side / 2, 0))
+        shape.append(Vector(radius + diam_hi_ext, -side / 2, 0))
+        shape.append(Vector(radius - 20, -side / 2, 0))
+        shape.append(Vector(radius - 20, side / 2, 0))
+
+        wire0 = Part.makePolygon(shape)
+        face0 = Part.Face(wire0)
+
+        # make the cut
+        cut0 = face0.extrude(Vector(0, 0, length))
+        cut0.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 0)
+
+        # make the volume
+        shape_int = Part.makeCone(diam_lo_ext / 2, diam_hi_ext / 2, length)
+        lower = Part.makeCone(diam_lo_ext / 2, diam_hi_ext / 2, 30)
+        upper = Part.makeCylinder(diam_hi_ext / 2, 30)
+        upper.translate(Vector(0, 0, 30))
+        shape_ext = upper.fuse(lower)
+        shape = shape_ext.cut(shape_int)
+
+        # suppress the profiles shape
+        shape = shape.common(cut0)
+        prof_cut = profil.comp.Shape.copy()
+        shape = shape.cut(prof_cut)
+
+        MecaComponent.__init__(self, doc, shape, name, (0., 0., 0.))
+
+
