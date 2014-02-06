@@ -1,18 +1,7 @@
 import Part
 from FreeCAD import Vector
 
-from base_component import MecaComponent, debug, debug_shape
-
-recup_system_data = {
-    'len': 60.0, # mm
-    'servo offset x': 30., # mm
-    'servo offset y': -10., # mm
-    'servo offset z': 33., # mm
-}
-
-ecope_data = {
-    'thick': 1., # mm thickness of the door wall
-}
+from base_component import MecaComponent
 
 
 class Servo(MecaComponent):
@@ -62,19 +51,134 @@ class Servo(MecaComponent):
         servo.translate(Vector(-data['x'] / 2, -data['y'] / 2, -data['z'] / 2))
         servo.rotate(Vector(0, 0, 0), Vector(1, 0, 0), -90)
         servo.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 90)
-        servo.rotate(Vector(0, 0, 0), Vector(1, 0, 0), 180)
+        #servo.rotate(Vector(0, 0, 0), Vector(1, 0, 0), 180)
 
         servo = servo.common(servo)
         MecaComponent.__init__(self, doc, servo, name, (0.95, 1., 1.))
 
 
-def ecope():
-    """ecope"""
-    data = ecope_data
+class SkinItem(MecaComponent):
+    """make a skin item that fits between 2 profiles with the given length"""
+    def __init__(self, doc, length, profil, name='parachue_skin'):
+        self.data = {
+            'diameter': 123., # mm internal
+            'thick': 2., # mm
+            'len': length,  # mm
+        }
 
-    # modify a skin to add nervures and ecope
-    # TODO
-    skin = profiles.skin_item(rd.case_parachute['len'] + profiles.bague_data['thick'])
+        side = profil['side']
+        radius = profil['radius']
+        thick = self.data['thick']
+        diam_int = self.data['diameter']
+        diam_ext = self.data['diameter'] + thick
 
-    return skin
+        # use profile shape to make suppressed parts of the skin
+        shape = []
+        shape.append(Vector(radius - 20, side / 2, 0))
+        shape.append(Vector(radius + diam_ext, side / 2, 0))
+        shape.append(Vector(radius + diam_ext, -side / 2, 0))
+        shape.append(Vector(radius - 20, -side / 2, 0))
+        shape.append(Vector(radius - 20, side / 2, 0))
 
+        wire0 = Part.makePolygon(shape)
+
+        # 1st part
+        face0 = Part.Face(wire0)
+
+        # 2nd part
+        face1 = Part.Face(wire0)
+
+        # make the volumes
+        cut0 = face0.extrude(Vector(0, 0, length))
+        cut0.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 0)
+
+        cut1 = face1.extrude(Vector(0, 0, length))
+        cut1.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120)
+
+        # make the skin
+        skin_ext = Part.makeCylinder(diam_ext / 2, length, Vector(0, 0, 0), Vector(0, 0, 1), 120)
+        skin_int = Part.makeCylinder(diam_int / 2, length, Vector(0, 0, 0), Vector(0, 0, 1), 120)
+        skin = skin_ext.cut(skin_int)
+
+        # create bottom and separation planes
+        plane_ext = Part.makeCylinder(diam_int / 2, thick, Vector(0, 0, 0), Vector(0, 0, 1), 120)
+        plane_int = Part.makeCylinder(diam_int / 2 - 30, thick, Vector(0, 0, 0), Vector(0, 0, 1), 120)
+        plane = plane_ext.cut(plane_int)
+
+        bottom = plane.copy()
+        sepa = plane.copy()
+        sepa.translate(Vector(0, 0, length - 60))
+
+        skin = skin.fuse(bottom)
+        skin = skin.fuse(sepa)
+
+        # add nerves on both sides of the skin
+        # 1st part
+        shape = []
+        shape.append(Vector(radius, side / 2, 0))
+        shape.append(Vector(diam_int / 2, side / 2, 0))
+        shape.append(Vector(diam_int / 2, side / 2 + thick, 0))
+        shape.append(Vector(radius, side / 2 + thick, 0))
+        shape.append(Vector(radius, side / 2, 0))
+
+        wire = Part.makePolygon(shape)
+        face = Part.Face(wire)
+
+        # make the volume
+        nerv0 = face.extrude(Vector(0, 0, length))
+        nerv0.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 0)
+
+        # 2nd part
+        shape = []
+        shape.append(Vector(radius, -side / 2, 0))
+        shape.append(Vector(diam_int / 2, -side / 2, 0))
+        shape.append(Vector(diam_int / 2, -side / 2 - thick, 0))
+        shape.append(Vector(radius, -side / 2 - thick, 0))
+        shape.append(Vector(radius, -side / 2, 0))
+
+        wire = Part.makePolygon(shape)
+        face = Part.Face(wire)
+
+        # make the volume
+        nerv1 = face.extrude(Vector(0, 0, length))
+        nerv1.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120)
+
+        skin = skin.fuse(nerv0)
+        skin = skin.fuse(nerv1)
+
+        # suppress the profiles shape
+        skin = skin.cut(cut0)
+        skin = skin.cut(cut1)
+
+        MecaComponent.__init__(self, doc, skin, name, (0., 0., 0.))
+
+
+class Ecope(MecaComponent):
+    """make an ecope"""
+    def __init__(self, doc, name='ecope'):
+        self.data = {
+            'diameter': 123., # mm internal
+            'x': 30,
+            'z': 60,
+            'thick': 2., # mm thickness of the door wall
+        }
+
+        thick = self.data['thick']
+        diam_int = self.data['diameter']
+        diam_ext = self.data['diameter'] + thick
+        x = self.data['x']
+        y = self.data['y']
+        z = self.data['z']
+
+        # make the skin
+        skin_ext = Part.makeCylinder(diam_ext / 2, z, Vector(0, 0, 0), Vector(0, 0, 1), 120)
+        skin_int = Part.makeCylinder(diam_int / 2, z, Vector(0, 0, 0), Vector(0, 0, 1), 120)
+        skin = skin_ext.cut(skin_int)
+
+        # make the external box
+        box_ext = Part.makeBox(x, y, z)
+        box_ext.translate(Vector(-x / 2, -y / 2, -z / 2))
+
+        ecope = skin.cut(box_ext)
+
+        MecaComponent.__init__(self, doc, ecope, name, (0., 0., 0.))

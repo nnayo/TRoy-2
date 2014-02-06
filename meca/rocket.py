@@ -83,7 +83,7 @@ def prop_draw(doc):
 def parachute_draw(doc):
     """every thing related to parachute"""
 
-    position = 1745 - 5 - 10
+    position = 1745 - 5 - 20
 
     for i in range(3):
         name = 'servo_%d' % i
@@ -266,11 +266,7 @@ def skin_draw(doc, profil):
     # parachute skins
     offset = 1180 + 5 + 5
     for i in range(3):
-        ecope = profiles.SkinItem(doc, 60, profil, 'ecope_%d' % i)
-        ecope.translate(Vector(0, 0, 1745 + 5 - ecope['len']))
-        ecope.rotate(Vector(0, 0, 1), 120 * i)
-
-        skin_item = profiles.SkinItem(doc, 1745 - 1180 - 5 - ecope['len'], profil, 'parachute_skin_%d' % i)
+        skin_item = parachute.SkinItem(doc, 1745 - 1180 - 5, profil, 'parachute_skin_%d' % i)
         skin_item.translate(Vector(0, 0, offset))
         skin_item.rotate(Vector(0, 0, 1), 120 * i)
 
