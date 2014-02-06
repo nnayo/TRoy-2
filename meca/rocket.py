@@ -249,6 +249,12 @@ def skin_draw(doc, profil):
         conic_skin_item.translate(Vector(0, 0, offset))
         conic_skin_item.rotate(Vector(0, 0, 1), 120 * i)
 
+        conic_skin_item = propulsor.PropHoldItem(doc, profil, 'prop_hold_%d' % i)
+        conic_skin_item.translate(Vector(0, 0, offset))
+        conic_skin_item.rotate(Vector(0, 0, 1), 120 * i)
+
+    return
+
     # upper fin skins
     offset = 120 + 10 + 5
     for i in range(3):
@@ -312,12 +318,12 @@ def skin_draw(doc, profil):
 
 
 def main(doc):
-    #prop_draw(doc)
+    prop_draw(doc)
     profil = profile_draw(doc)
     skin = skin_draw(doc, profil)
-    disque_draw(doc, profil, skin)
+    #disque_draw(doc, profil, skin)
     #elec_draw(doc)
-    parachute_draw(doc)
+    #parachute_draw(doc)
 
     FreeCAD.Gui.SendMsgToActiveView("ViewFit")
 
