@@ -80,7 +80,7 @@ def prop_draw(doc):
     guide.translate(Vector(0, 0, -34.))
 
 
-def parachute_draw(doc):
+def parachute_draw(doc, profil):
     """every thing related to parachute"""
 
     position = 1745 - 5 - 20
@@ -90,9 +90,23 @@ def parachute_draw(doc):
 
         servo = parachute.Servo(doc, name)
         translation = Vector(-30, 0, position)
-        rotation = Rotation(Vector(0, 0, 1), 120 * i)
+        rotation = Rotation(Vector(0, 0, 1), 120 * i - 120)
         placement = Placement(translation, rotation, vector_neg(translation))
         servo.place(placement)
+
+    # parachute skins
+    position = 1180 + 5 + 5
+    length = 1745 - 1180 - 5
+
+    for i in range(3):
+        ecope = parachute.Ecope(doc, 'ecope_%d' % i)
+        skin_item = parachute.SkinItem(doc, length, profil, ecope, 'parachute_skin_%d' % i)
+
+        ecope.translate(Vector(0, 0, position + length - ecope['z']))
+        ecope.rotate(Vector(0, 0, 1), 120 * i)
+
+        skin_item.translate(Vector(0, 0, position))
+        skin_item.rotate(Vector(0, 0, 1), 120 * i)
 
 
 def elec_draw(doc):
@@ -253,8 +267,6 @@ def skin_draw(doc, profil):
         conic_skin_item.translate(Vector(0, 0, offset))
         conic_skin_item.rotate(Vector(0, 0, 1), 120 * i)
 
-    return
-
     # upper fin skins
     offset = 120 + 10 + 5
     for i in range(3):
@@ -270,13 +282,7 @@ def skin_draw(doc, profil):
         skin_item.rotate(Vector(0, 0, 1), 120 * i)
 
     # parachute skins
-    offset = 1180 + 5 + 5
-    for i in range(3):
-        skin_item = parachute.SkinItem(doc, 1745 - 1180 - 5, profil, 'parachute_skin_%d' % i)
-        skin_item.translate(Vector(0, 0, offset))
-        skin_item.rotate(Vector(0, 0, 1), 120 * i)
-
-    return skin_item
+    # see in parachute_draw()
 
     # lower cone skins
     offset = 1745 + 5 + 5
@@ -318,12 +324,12 @@ def skin_draw(doc, profil):
 
 
 def main(doc):
-    prop_draw(doc)
+    #prop_draw(doc)
     profil = profile_draw(doc)
-    skin = skin_draw(doc, profil)
+    #skin = skin_draw(doc, profil)
     #disque_draw(doc, profil, skin)
     #elec_draw(doc)
-    #parachute_draw(doc)
+    parachute_draw(doc, profil)
 
     FreeCAD.Gui.SendMsgToActiveView("ViewFit")
 
