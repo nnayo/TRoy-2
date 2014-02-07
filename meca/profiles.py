@@ -99,7 +99,6 @@ class Bague(MecaComponent):
 
 class BaguePropulsor(MecaComponent):
     """most complicated bague"""
-    # TODO
     def __init__(self, doc, profil, name='bague propulsor'):
         self.data = {
             'thick': 10., # mm
@@ -107,7 +106,8 @@ class BaguePropulsor(MecaComponent):
             'len': 60.5, # mm
             'ring radius': 39., # mm
             'hole radius': 29., # mm
-            'offset z': 120. # mm
+            'offset z': 120., # mm
+            'support z': 230.,  # mm
         }
 
         base = self.data['ring radius'] - self.data['side']
@@ -154,6 +154,19 @@ class BaguePropulsor(MecaComponent):
         hole = Part.makeCylinder(self.data['hole radius'], thick)
         bague = bague.fuse(branches)
         bague = bague.cut(hole)
+
+        # winglet support
+        support_z = self.data['support z']
+        support0 = Part.makeBox(side / 2, side, support_z)
+        support0.translate(Vector(length - side / 2, -side / 2, -support_z / 2))
+        support1 = support0.copy()
+        support1.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 120)
+        support2 = support0.copy()
+        support2.rotate(Vector(0, 0, 0), Vector(0, 0, 1), 240)
+
+        bague = bague.fuse(support0)
+        bague = bague.fuse(support1)
+        bague = bague.fuse(support2)
 
         MecaComponent.__init__(self, doc, bague, name, (0.95, 1., 1.))
 
@@ -396,7 +409,6 @@ def cone_setup(doc, profil, data):
     shape.append(Vector(radius - 10, side / 2, 0))
 
     wire = Part.makePolygon(shape)
-
     face = Part.Face(wire)
 
     # make the volume
@@ -414,7 +426,6 @@ def cone_setup(doc, profil, data):
     shape.append(Vector(radius, side / 2, 0))
 
     wire = Part.makePolygon(shape)
-
     face = Part.Face(wire)
 
     # make the volume
@@ -493,7 +504,6 @@ def cone_setup(doc, profil, data):
     e2 = Part.makeLine(p2, p0)
  
     section = Part.Wire([e0, e1, e2])
-
     cone_struct_thread = Part.Wire(thread_int).makePipeShell([section], 1, 1)
 
     cone_struct_thread_obj = doc.addObject("Part::Feature", '_cone_struct_thread')
@@ -510,7 +520,6 @@ def cone_setup(doc, profil, data):
     e2 = Part.makeLine(p2, p0)
  
     section = Part.Wire([e0, e1, e2])
-
     cone_top_thread = Part.Wire(thread_ext).makePipeShell([section], 1, 1)
 
     cone_top_thread_obj = doc.addObject("Part::Feature", '_cone_top_thread')
@@ -680,10 +689,10 @@ class Fin(MecaComponent):
     def __init__(self, doc, name='fin'):
         # ailerons
         self.data = {
-            'len': 300., # mm
-            'e': 200., # mm
-            'p': 50., # mm
-            'm': 200., # mm
+            'len': 365., # mm
+            'e': 222., # mm
+            'p': 55., # mm
+            'm': 255., # mm
             'thick': 3., # mm
         }
 

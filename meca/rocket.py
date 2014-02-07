@@ -22,7 +22,6 @@ def profile_draw(doc):
 
     return profil
 
-
     # creation and position of fins
     for angle in range(0, 360, 120):
         fin = profiles.Fin(doc, "fin_%d" % angle)
@@ -38,6 +37,8 @@ def disque_draw(doc, profil, skin):
     bague.translate(Vector(0, 0, bague['offset z']))
     disque = profiles.Disque(doc, profil, skin, "disque_%d" % bague['offset z'])
     disque.translate(Vector(0, 0, bague['offset z'] + bague['thick']))
+
+    return
 
     # creation and position 3 bagues and 3 disques
     position = 477
@@ -327,10 +328,10 @@ def skin_draw(doc, profil):
 def main(doc):
     #prop_draw(doc)
     profil = profile_draw(doc)
-    #skin = skin_draw(doc, profil)
-    #disque_draw(doc, profil, skin)
+    skin = skin_draw(doc, profil)
+    disque_draw(doc, profil, skin)
     #elec_draw(doc)
-    parachute_draw(doc, profil)
+    #parachute_draw(doc, profil)
 
     FreeCAD.Gui.SendMsgToActiveView("ViewFit")
 
