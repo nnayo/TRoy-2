@@ -249,11 +249,8 @@ def skin_draw(doc, profil):
         conic_skin_item.translate(Vector(0, 0, offset))
         conic_skin_item.rotate(Vector(0, 0, 1), 120 * i)
 
-        conic_skin_item = propulsor.PropHoldItem(doc, profil, 'prop_hold_%d' % i)
-        conic_skin_item.translate(Vector(0, 0, offset))
-        conic_skin_item.rotate(Vector(0, 0, 1), 120 * i)
-
-    return
+    conic_skin_item = propulsor.PropHoldItem(doc, profil, 'prop_hold')
+    conic_skin_item.translate(Vector(0, 0, offset - 5))
 
     # upper fin skins
     offset = 120 + 10 + 5
@@ -261,6 +258,8 @@ def skin_draw(doc, profil):
         skin_item = profiles.SkinItem(doc, 477 - 120 - 10, profil, 'upper_fin_skin_%d' % i)
         skin_item.translate(Vector(0, 0, offset))
         skin_item.rotate(Vector(0, 0, 1), 120 * i)
+
+    return skin_item
 
     # equipement skins
     offset = 477 + 5 + 5
@@ -279,8 +278,6 @@ def skin_draw(doc, profil):
         skin_item = profiles.SkinItem(doc, 1745 - 1180 - 5 - ecope['len'], profil, 'parachute_skin_%d' % i)
         skin_item.translate(Vector(0, 0, offset))
         skin_item.rotate(Vector(0, 0, 1), 120 * i)
-
-    return skin_item
 
     # lower cone skins
     offset = 1745 + 5 + 5
@@ -322,7 +319,7 @@ def skin_draw(doc, profil):
 
 
 def main(doc):
-    prop_draw(doc)
+    #prop_draw(doc)
     profil = profile_draw(doc)
     skin = skin_draw(doc, profil)
     #disque_draw(doc, profil, skin)
