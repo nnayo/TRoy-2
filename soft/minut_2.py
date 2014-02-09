@@ -50,8 +50,8 @@ slots = [
 		# set testing take-off detection threshold (200 * 10ms, 8 * 0.1G)
 		#take_off_thres(I2C_SELF_ADDR, I2C_SELF_ADDR, T_ID, CMD, 200, 8),
 
-		# wait to allow DNA master to start 0x03e8 = 1000 ms
-		wait(I2C_SELF_ADDR, I2C_SELF_ADDR, T_ID, CMD, 0x03, 0xe8),
+		# wait to allow DNA master to start 0x07d0 = 2000 ms
+		wait(I2C_SELF_ADDR, I2C_SELF_ADDR, T_ID, CMD, 0x07, 0xd0),
 
 		# send application start signal
 		appli_start(I2C_SELF_ADDR, I2C_SELF_ADDR, T_ID, CMD),

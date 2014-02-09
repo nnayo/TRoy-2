@@ -124,6 +124,9 @@ const struct avr_mmcu_vcd_trace_t simavr_conf[]  _MMCU_ = {
 	{ AVR_MCU_VCD_SYMBOL("cone_open_switch"), .mask = _BV(PORTB3), .what = (void*)&PINB, },
 
 	{ AVR_MCU_VCD_SYMBOL("TWDR"), .what = (void*)&TWDR, },
+	{ AVR_MCU_VCD_SYMBOL("TWSR"), .what = (void*)&TWSR, },
+	{ AVR_MCU_VCD_SYMBOL("TWCR"), .what = (void*)&TWCR, },
+	{ AVR_MCU_VCD_SYMBOL("TWAR"), .what = (void*)&TWAR, },
 
 	{ AVR_MCU_VCD_SYMBOL("SPDR"), .what = (void*)&SPDR, },
 
@@ -243,6 +246,7 @@ int main(void)
 		DPT_run();
 		BSC_run();
 		CMN_run();
+		DNA_run();
 		CPU_run();
 
 		MNT_run();
