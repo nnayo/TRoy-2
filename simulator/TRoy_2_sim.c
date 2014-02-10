@@ -8,7 +8,7 @@
 #include "sim_gdb.h"
 
 
-static avr_t* avr_setup(const char* fname, char* vcd_filename, int gdb_port)
+static avr_t* avr_setup(const char* fname, char* vcd_filename, int gdb, int gdb_port)
 {
 	printf("loading %s...\n", fname);
 
@@ -26,8 +26,10 @@ static avr_t* avr_setup(const char* fname, char* vcd_filename, int gdb_port)
 	avr_init(avr);
 	avr_load_firmware(avr, &f);
 
-    avr->gdb_port = gdb_port;
-    //avr_gdb_init(avr);
+    if (gdb) {
+        avr->gdb_port = gdb_port;
+        avr_gdb_init(avr);
+    }
 
     return avr;
 }
@@ -58,14 +60,23 @@ static void i2c_bus_connect(avr_t** cores, int nb_cores)
 int main(void)
 {
     // set every core
-    avr_t* minut_0 = avr_setup("minut_0.elf", "minut_0.vcd", 7000);
-    avr_t* minut_1 = avr_setup("minut_1.elf", "minut_1.vcd", 7001);
-    avr_t* minut_2 = avr_setup("minut_2.elf", "minut_2.vcd", 7002);
-    avr_t* xbee = avr_setup("xbee.elf", "xbee.vcd", 7010);
-    avr_t* sd_0 = avr_setup("sd_0.elf", "sd_0.vcd", 7020);
-    avr_t* sd_1 = avr_setup("sd_1.elf", "sd_1.vcd", 7021);
+#ifndef DEBUG 
+    int gdb = 0;
+    avr_t* minut_0 = avr_setup("minut_0.elf", "minut_0.vcd", gdb, 7000);
+    avr_t* minut_1 = avr_setup("minut_1.elf", "minut_1.vcd", gdb, 7001);
+    avr_t* minut_2 = avr_setup("minut_2.elf", "minut_2.vcd", gdb, 7002);
+    avr_t* xbee = avr_setup("xbee.elf", "xbee.vcd", gdb, 7010);
+    avr_t* sd_0 = avr_setup("sd_0.elf", "sd_0.vcd", gdb, 7020);
+    avr_t* sd_1 = avr_setup("sd_1.elf", "sd_1.vcd", gdb, 7021);
 
     avr_t* cores[] = { minut_0, minut_1, minut_2, xbee, sd_0, sd_1 };
+
+#else
+    avr_t* txer = avr_setup("txer.elf", "txer.vcd", 1, 7020);
+    avr_t* rxer = avr_setup("rxer.elf", "rxer.vcd", 1, 7021);
+
+    avr_t* cores[] = { txer, rxer, };
+#endif
 
     i2c_bus_connect(cores, sizeof(cores) / sizeof(cores[0]));
 
@@ -104,10 +115,17 @@ int main(void)
     }
 
     // stop cleanly
+#ifndef DEBUG 
     avr_terminate(minut_0);
     avr_terminate(minut_1);
     avr_terminate(minut_2);
     avr_terminate(xbee);
     avr_terminate(sd_0);
     avr_terminate(sd_1);
+
+#else
+    avr_terminate(rxer);
+    avr_terminate(txer);
+
+#endif
 }
