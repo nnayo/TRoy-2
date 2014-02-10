@@ -32,11 +32,31 @@ static avr_t* avr_setup(const char* fname, char* vcd_filename, int gdb_port)
     return avr;
 }
 
+static void i2c_bus_connect(avr_t** cores, int nb_cores)
+{
+    avr_t* core_src;
+    avr_t* core_dst;
+
+    for (int i = 0; i < nb_cores; i++) {
+        core_src = cores[i];
+        avr_irq_t* irq_src = avr_io_getirq(core_src, AVR_IOCTL_TWI_GETIRQ(0), TWI_IRQ_OUTPUT);
+
+        for (int j = 0; j < nb_cores; j++) {
+            core_dst = cores[j];
+
+            if (core_src == core_dst) {
+                continue;
+            }
+
+            avr_irq_t* irq_dst = avr_io_getirq(core_dst, AVR_IOCTL_TWI_GETIRQ(0), TWI_IRQ_INPUT);
+            avr_connect_irq(irq_src, irq_dst);
+        }
+    }
+}
+
+
 int main(void)
 {
-    // I2C bus
-    avr_irq_t * i2c_irq;
-
     // set every core
     avr_t* minut_0 = avr_setup("minut_0.elf", "minut_0.vcd", 7000);
     avr_t* minut_1 = avr_setup("minut_1.elf", "minut_1.vcd", 7001);
@@ -47,9 +67,12 @@ int main(void)
 
     avr_t* cores[] = { minut_0, minut_1, minut_2, xbee, sd_0, sd_1 };
 
+    i2c_bus_connect(cores, sizeof(cores) / sizeof(cores[0]));
+
 	printf( "\nTRoy_2 simulation launched\n");
 
     avr_cycle_count_t higher_cycle = 1;
+    avr_cycle_count_t higher_cycle_display_trigger = 1e6;
 	int state;
 
 	while (1) {
@@ -71,6 +94,12 @@ int main(void)
             if (cores[i]->cycle > higher_cycle) {
                 higher_cycle = cores[i]->cycle;
             }
+        }
+
+        // refresh higher cycle display 
+        if ( higher_cycle >= higher_cycle_display_trigger) {
+            printf("cycle = %10ld (%9ld s)\n", (long)higher_cycle, (long)(higher_cycle / 16e6));
+            higher_cycle_display_trigger += 1e6;
         }
     }
 
