@@ -5,14 +5,14 @@ CFLAGS = -g -I$(TROLL_PROJECTS)/simavr/simavr/sim -std=c99 -Wall -Wextra
 LDFLAGS = $(TROLL_PROJECTS)/simavr/libsimavr.a -lelf
 
 
-all:	TRoy_2_sim minut_0.elf minut_1.elf minut_2.elf xbee.elf sd_0.elf sd_1.elf
+all:	sim_TRoy_2 minut_0.elf minut_1.elf minut_2.elf xbee.elf sd_0.elf sd_1.elf
 
 
-TRoy_2_sim: TRoy_2_sim.o
-	$(CC) TRoy_2_sim.o $(LDFLAGS) -o TRoy_2_sim
+sim_TRoy_2: sim_TRoy_2.o
+	$(CC) sim_TRoy_2.o $(LDFLAGS) -o sim_TRoy_2
 
 
-TRoy_2_sim.o: TRoy_2_sim.c
+sim_TRoy_2.o: sim_TRoy_2.c
 
 
 minut_0.elf:
@@ -34,9 +34,9 @@ sd_1.elf:
 	ln -s ../soft/sd_1.elf sd_1.elf
 
 
-test: TRoy_2_sim rxer.elf txer.elf
-	$(CC) $(CFLAGS) -DDEBUG -c TRoy_2_sim.c -o TRoy_2_sim.o
-	$(CC) TRoy_2_sim.o $(LDFLAGS) -o TRoy_2_sim
+test: sim_TRoy_2 rxer.elf txer.elf
+	$(CC) $(CFLAGS) -DDEBUG -c sim_TRoy_2.c -o sim_TRoy_2.o
+	$(CC) sim_TRoy_2.o $(LDFLAGS) -o sim_TRoy_2
 
 rxer.elf: rxer.o
 	avr-gcc rxer.o -L$(TROLL_PROJECTS)/nanoK -lnanoK -g -mmcu=atmega328p -Wl,--undefined=_mmcu,--section-start=.mmcu=0x8000 -o rxer.elf
@@ -52,4 +52,4 @@ txer.o: txer.c
 
 
 clean:
-	rm -f TRoy_2_sim *.o *.elf *.vcd
+	rm -f sim_TRoy_2 *.o *.elf *.vcd
