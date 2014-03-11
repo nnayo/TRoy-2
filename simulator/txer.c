@@ -1,5 +1,6 @@
 #include "drivers/twi.h"
 #include "avr/io.h"
+#include "avr/interrupt.h"
 
 #include "avr_mcu_section.h"
 
@@ -13,8 +14,12 @@ const struct avr_mmcu_vcd_trace_t simavr_conf[]  _MMCU_ = {
 };
 
 
+volatile u8 txed;
+
 void call_back(twi_state_t state, u8 nb_data, void* misc)
 {
+    TWI_stop();
+    txed = 1;
 }
 
 
@@ -27,11 +32,17 @@ void main(void)
     for (u16 i = 0; i < 1000; i++)
         ;
 
-    u8 data[] = {1, 2, 3, 4, 5, 6, 7};
+    u8 data[] = {0x07, 0x17};
     u8 len = sizeof(data);
+
+    sei();
+
+    txed = 0;
 
     while (1) {
         TWI_ms_tx(0x4e, len, data);
+        while (!txed)
+            ;
     }
 }
 

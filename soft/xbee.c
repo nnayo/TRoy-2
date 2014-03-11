@@ -224,7 +224,7 @@ int main(void)
 	DPT_init();
 	BSC_init();
 	CMN_init();
-    DNA_init(DNA_BC);
+	DNA_init(DNA_BC);
 	NAT_init();
 	CPU_init();
 
@@ -233,7 +233,7 @@ int main(void)
 		DPT_run();
 		BSC_run();
 		CMN_run();
-        DNA_run();
+		DNA_run();
 		NAT_run();
 		CPU_run();
 

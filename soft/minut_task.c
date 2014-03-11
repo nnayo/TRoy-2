@@ -272,7 +272,7 @@ static const stm_state_t parachute = {
 
 static u8 init_action(pt_t* pt, void* args)
 {
-    (void)args;
+	(void)args;
 	frame_t fr;
 
 	PT_BEGIN(pt);
@@ -305,7 +305,7 @@ static u8 init_action(pt_t* pt, void* args)
 
 static u8 cone_opening_action(pt_t* pt, void* args)
 {
-    (void)args;
+	(void)args;
 	frame_t fr;
 
 	PT_BEGIN(pt);
@@ -331,7 +331,7 @@ static u8 cone_opening_action(pt_t* pt, void* args)
 
 static u8 aero_opening_action(pt_t* pt, void* args)
 {
-    (void)args;
+	(void)args;
 	frame_t fr;
 
 	PT_BEGIN(pt);
@@ -372,7 +372,7 @@ static u8 aero_opening_action(pt_t* pt, void* args)
 
 static u8 aero_open_action(pt_t* pt, void* args)
 {
-    (void)args;
+	(void)args;
 	frame_t fr;
 
 	PT_BEGIN(pt);
@@ -395,7 +395,7 @@ static u8 aero_open_action(pt_t* pt, void* args)
 
 static u8 cone_closing_action(pt_t* pt, void* args)
 {
-    (void)args;
+	(void)args;
 	frame_t fr;
 
 	PT_BEGIN(pt);
@@ -421,7 +421,7 @@ static u8 cone_closing_action(pt_t* pt, void* args)
 
 static u8 cone_closed_action(pt_t* pt, void* args)
 {
-    (void)args;
+	(void)args;
 	frame_t fr;
 
 	PT_BEGIN(pt);
@@ -457,7 +457,7 @@ static u8 cone_closed_action(pt_t* pt, void* args)
 
 static u8 waiting_action(pt_t* pt, void* args)
 {
-    (void)args;
+	(void)args;
 	frame_t fr;
 
 	PT_BEGIN(pt);
@@ -485,7 +485,7 @@ static u8 waiting_action(pt_t* pt, void* args)
 
 static u8 flight_action(pt_t* pt, void* args)
 {
-    (void)args;
+	(void)args;
 	frame_t fr;
 
 	PT_BEGIN(pt);
@@ -521,7 +521,7 @@ static u8 flight_action(pt_t* pt, void* args)
 
 static u8 cone_open_action(pt_t* pt, void* args)
 {
-    (void)args;
+	(void)args;
 	frame_t fr;
 
 	PT_BEGIN(pt);
@@ -557,7 +557,7 @@ static u8 cone_open_action(pt_t* pt, void* args)
 
 static u8 braking_action(pt_t* pt, void* args)
 {
-    (void)args;
+	(void)args;
 	frame_t fr;
 
 	PT_BEGIN(pt);
@@ -588,7 +588,7 @@ static u8 braking_action(pt_t* pt, void* args)
 
 static u8 parachute_action(pt_t* pt, void* args)
 {
-    (void)args;
+	(void)args;
 	frame_t fr;
 
 	PT_BEGIN(pt);

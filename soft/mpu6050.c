@@ -32,7 +32,7 @@
 //
 
 // uncomment the define below to use the SC18IS600 SPI-I2C bridge
-#define USE_SC18IS600
+//#define USE_SC18IS600
 
 #ifdef USE_SC18IS600
 # include "sc18is600.h"
@@ -77,8 +77,8 @@ struct {
 	pt_t pt_spawn;				// pt for spawned threads
 #ifdef USE_SC18IS600
 	pt_t pt_spawn_2;			// pt for spawned threads
-    u8 rx[10];
-    u8 n;
+	u8 rx[10];
+	u8 n;
 #endif
 
 	frame_t in_buf[IN_FIFO_SIZE];
@@ -123,7 +123,7 @@ static PT_THREAD( MPU_init_pt_thread(pt_t* pt) )
 	// hard init
 	DPT_lock(&MPU.interf);
 #else
-    u8 tx[5];
+	u8 tx[5];
 #endif
 
 	// set reg index to WHO_AM_I reg
@@ -139,9 +139,9 @@ static PT_THREAD( MPU_init_pt_thread(pt_t* pt) )
 		PT_RESTART(pt);
 	}
 #else
-    tx[0] = MPU6050_WHO_AM_I;
-    MPU.n = 1;
-    PT_SPAWN(pt, &MPU.pt_spawn_2, SC18IS600_tx(&MPU.pt_spawn_2, MPU_I2C_ADDR, tx, &MPU.n));
+	tx[0] = MPU6050_WHO_AM_I;
+	MPU.n = 1;
+	PT_SPAWN(pt, &MPU.pt_spawn_2, SC18IS600_tx(&MPU.pt_spawn_2, MPU_I2C_ADDR, tx, &MPU.n));
 #endif
 
 	// read WHO_AM_I reg
@@ -151,8 +151,8 @@ static PT_THREAD( MPU_init_pt_thread(pt_t* pt) )
 	// wait response
 	PT_WAIT_UNTIL(pt, OK == FIFO_get(&MPU.in_fifo, &fr));
 #else
-    MPU.n = 1;
-    PT_SPAWN(pt, &MPU.pt_spawn_2, SC18IS600_rx(&MPU.pt_spawn_2, MPU_I2C_ADDR, MPU.rx, &MPU.n));
+	MPU.n = 1;
+	PT_SPAWN(pt, &MPU.pt_spawn_2, SC18IS600_rx(&MPU.pt_spawn_2, MPU_I2C_ADDR, MPU.rx, &MPU.n));
 #endif
 
 
@@ -163,7 +163,7 @@ static PT_THREAD( MPU_init_pt_thread(pt_t* pt) )
 		PT_RESTART(pt);
 	}
 #else
-    if ( MPU.rx[0] != 0x68 ) {
+	if ( MPU.rx[0] != 0x68 ) {
 		// on error, retry
 		PT_RESTART(pt);
 	}
@@ -182,13 +182,13 @@ static PT_THREAD( MPU_init_pt_thread(pt_t* pt) )
 	// wait response
 	PT_WAIT_UNTIL(pt, OK == FIFO_get(&MPU.in_fifo, &fr));
 #else
-    tx[0] = MPU6050_SMPLRT_DIV;
-    tx[1] = 0x09;
-    tx[2] = 0x02;
-    tx[3] = 0x08;
-    tx[4] = 0x18;
-    MPU.n = 5;
-    PT_SPAWN(pt, &MPU.pt_spawn_2, SC18IS600_tx(&MPU.pt_spawn_2, MPU_I2C_ADDR, tx, &MPU.n));
+	tx[0] = MPU6050_SMPLRT_DIV;
+	tx[1] = 0x09;
+	tx[2] = 0x02;
+	tx[3] = 0x08;
+	tx[4] = 0x18;
+	MPU.n = 5;
+	PT_SPAWN(pt, &MPU.pt_spawn_2, SC18IS600_tx(&MPU.pt_spawn_2, MPU_I2C_ADDR, tx, &MPU.n));
 #endif
 
 	// quit sleep mode : PWR_MGMT_1 = 0x00
@@ -200,10 +200,10 @@ static PT_THREAD( MPU_init_pt_thread(pt_t* pt) )
 
 	DPT_unlock(&MPU.interf);
 #else
-    tx[0] = MPU6050_PWR_MGMT_1;
-    tx[1] = 0x00;
-    MPU.n = 2;
-    PT_SPAWN(pt, &MPU.pt_spawn_2, SC18IS600_tx(&MPU.pt_spawn_2, MPU_I2C_ADDR, tx, &MPU.n));
+	tx[0] = MPU6050_PWR_MGMT_1;
+	tx[1] = 0x00;
+	MPU.n = 2;
+	PT_SPAWN(pt, &MPU.pt_spawn_2, SC18IS600_tx(&MPU.pt_spawn_2, MPU_I2C_ADDR, tx, &MPU.n));
 #endif
 
 	PT_EXIT(pt);
@@ -228,9 +228,9 @@ static PT_THREAD( MPU_acquisition(pt_t* pt, u8 len, frame_t* fr) )
 	// wait response
 	PT_WAIT_UNTIL(pt, OK == FIFO_get(&MPU.in_fifo, fr));
 #else
-    MPU.n = len;
-    PT_SPAWN(pt, &MPU.pt_spawn_2, SC18IS600_rx(&MPU.pt_spawn_2, MPU_I2C_ADDR, MPU.rx, &MPU.n));
-    memcpy(fr->argv, MPU.rx, MPU.n);
+	MPU.n = len;
+	PT_SPAWN(pt, &MPU.pt_spawn_2, SC18IS600_rx(&MPU.pt_spawn_2, MPU_I2C_ADDR, MPU.rx, &MPU.n));
+	memcpy(fr->argv, MPU.rx, MPU.n);
 #endif
 
 #ifndef USE_SC18IS600
@@ -253,8 +253,8 @@ static PT_THREAD( MPU_thread(pt_t* pt) )
 {
 	frame_t fr;
 #ifdef USE_SC18IS600
-    u8 tx[1];
-    u8 n;
+	u8 tx[1];
+	u8 n;
 #endif
 
 	PT_BEGIN(pt);
@@ -271,7 +271,7 @@ static PT_THREAD( MPU_thread(pt_t* pt) )
 	}
 
 #ifdef USE_SC18IS600
-    PT_SPAWN(pt, &MPU.pt_spawn, SC18IS600_init(&MPU.pt_spawn));
+	PT_SPAWN(pt, &MPU.pt_spawn, SC18IS600_init(&MPU.pt_spawn));
 #endif
 	// check MPU hardware init
 	PT_SPAWN(pt, &MPU.pt_spawn, MPU_init_pt_thread(&MPU.pt_spawn));
@@ -294,9 +294,9 @@ static PT_THREAD( MPU_thread(pt_t* pt) )
 		// wait response
 		PT_WAIT_UNTIL(pt, OK == FIFO_get(&MPU.in_fifo, &fr));
 #else
-    tx[0] = MPU6050_ACCEL_XOUT_H;
-    n = 1;
-    PT_SPAWN(pt, &MPU.pt_spawn_2, SC18IS600_tx(&MPU.pt_spawn_2, MPU_I2C_ADDR, tx, &n));
+	tx[0] = MPU6050_ACCEL_XOUT_H;
+	n = 1;
+	PT_SPAWN(pt, &MPU.pt_spawn_2, SC18IS600_tx(&MPU.pt_spawn_2, MPU_I2C_ADDR, tx, &n));
 #endif
 
 #ifndef USE_SC18IS600

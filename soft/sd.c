@@ -231,7 +231,7 @@ int main(void)
 	DPT_init();
 	BSC_init();
 	CMN_init();
-    DNA_init(DNA_XP);
+	DNA_init(DNA_XP);
 	NAT_init();
 	CPU_init();
 

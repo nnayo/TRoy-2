@@ -1,5 +1,6 @@
 #include "drivers/twi.h"
 #include "avr/io.h"
+#include "avr/interrupt.h"
 
 #include "avr_mcu_section.h"
 
@@ -13,11 +14,20 @@ const struct avr_mmcu_vcd_trace_t simavr_conf[]  _MMCU_ = {
 };
 
 
-u8 len;
 u8 data[10];
+u8 len = sizeof(data) / sizeof(data[0]);
 
 void call_back(twi_state_t state, u8 nb_data, void* misc)
 {
+    switch (state) {
+    case TWI_SL_RX_BEGIN:
+        TWI_sl_rx(len, data);
+        break;
+
+    default:
+        TWI_stop();
+        break;
+    }
 }
 
 
