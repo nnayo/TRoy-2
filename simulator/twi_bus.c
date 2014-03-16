@@ -23,30 +23,32 @@ typedef struct twi_bus_t {
 	int nb_links;
 
 	// dialog state
-	struct twi_link_t* origin;	// origin link is the only one to not have the response
-	int reentry_lock;
+	struct twi_link_t* origin;	// origin link is the only one not having to response
+	int resp_quota;
+	int nb_resp;
 
 	// VCD tracing
 	avr_vcd_t vcd;
 } twi_bus_t;
 
-static char msg2chr[] = { '0', '[', '@', 'D', '+', '-', ']' };
+static char msg2chr[] = { '0', '[', '@', 'D', '+', '-', 'w', ']' };
 
-#define BRIGTH_COLOR	"\x1b[95m"
+#define RED_COLOR		"\x1b[91m"
+#define PURPLE_COLOR	"\x1b[95m"
 #define NORMAL_COLOR	"\x1b[0m"
 
 static void twi_bus_trace(const char* fname, avr_twi_msg_irq_t msg, uint8_t addr, struct twi_bus_t* bus)
 {
-	printf("[%s] ", fname);
+	printf("["RED_COLOR"%s"NORMAL_COLOR"] ", fname);
 
 	if (msg.bus.msg == TWI_MSG_ADDR) {
-		printf(BRIGTH_COLOR"%c  0x%02x+%c"NORMAL_COLOR, msg2chr[msg.bus.msg], addr >> 1, (addr & 1) ? 'R' : 'W');
+		printf(PURPLE_COLOR"%c  0x%02x+%c"NORMAL_COLOR, msg2chr[msg.bus.msg], addr >> 1, (addr & 1) ? 'R' : 'W');
 	}
 	else {
-		printf(BRIGTH_COLOR"%c  0x%02x"NORMAL_COLOR, msg2chr[msg.bus.msg], addr);
+		printf(PURPLE_COLOR"%c  0x%02x"NORMAL_COLOR, msg2chr[msg.bus.msg], addr);
 	}
 
-	printf("  org:%p, rl:%d (t=%d)\n", bus->origin, bus->reentry_lock, (int)bus->vcd.avr->cycle);
+	printf("  org:%p, qt:%d rp:%d (t=%d)\n", bus->origin, bus->resp_quota, bus->nb_resp, (int)bus->vcd.avr->cycle);
 }
 
 
@@ -63,35 +65,10 @@ static void twi_bus_dispatch(struct twi_bus_t* twi_bus, avr_twi_msg_irq_t msg)
 	}
 }
 
-// response message to all links expect origin
-static void twi_bus_response(struct twi_bus_t* twi_bus, avr_twi_msg_irq_t msg)
-{
-	twi_bus_trace(__func__, msg, msg.bus.addr, twi_bus);
-
-	avr_raise_irq(twi_bus->origin->out, msg.v);
-
-	// reset conditions
-	twi_bus->origin = NULL;
-	twi_bus->reentry_lock = 0;
-}
-
-// store message with its sender
-static void twi_bus_store(struct twi_bus_t* twi_bus, struct avr_irq_t* irq, avr_twi_msg_irq_t msg)
-{
-	twi_bus_trace(__func__, msg, msg.bus.addr, twi_bus);
-
-	for (int i = 0; i < twi_bus->nb_links; i++) {
-		if (twi_bus->links[i]->in == irq) {
-			twi_bus->links[i]->msg = msg;
-			break;
-		}
-	}
-}
-
 // arbitrate stored messages
 static struct avr_twi_msg_irq_t twi_bus_arbitrate(struct twi_bus_t* twi_bus)
 {
-	static avr_twi_msg_irq_t cmd_msg;
+	avr_twi_msg_irq_t cmd_msg;
 	avr_twi_msg_irq_t rsp_msg;
 	avr_twi_msg_irq_t lnk_msg;
 
@@ -115,6 +92,10 @@ static struct avr_twi_msg_irq_t twi_bus_arbitrate(struct twi_bus_t* twi_bus)
 		rsp_msg.bus.addr = cmd_msg.bus.addr;
 		break;
 
+	case TWI_MSG_CLK:
+		rsp_msg.bus.msg = TWI_MSG_DATA;
+		rsp_msg.bus.data = 0xff;
+		break;
 	}
 
 	struct twi_link_t* origin = twi_bus->origin;
@@ -132,15 +113,47 @@ static struct avr_twi_msg_irq_t twi_bus_arbitrate(struct twi_bus_t* twi_bus)
 				rsp_msg = lnk_msg;
 				return rsp_msg;
 			}
-
 			break;
 
+		case TWI_MSG_CLK:
+			if (lnk_msg.bus.data < rsp_msg.bus.data) {
+				rsp_msg.bus.data = lnk_msg.bus.data;
+			}
 		default:
 			break;
 		}
 	}
 
 	return rsp_msg;
+}
+
+// response message to all links expect origin
+static void twi_bus_response(struct twi_bus_t* twi_bus, avr_twi_msg_irq_t msg)
+{
+	twi_bus_trace(__func__, msg, msg.bus.addr, twi_bus);
+
+	avr_raise_irq(twi_bus->origin->out, msg.v);
+}
+
+// store message with its sender
+static void twi_bus_store(struct twi_bus_t* twi_bus, struct avr_irq_t* irq, avr_twi_msg_irq_t msg)
+{
+	twi_bus_trace(__func__, msg, msg.bus.addr, twi_bus);
+
+	for (int i = 0; i < twi_bus->nb_links; i++) {
+		if (twi_bus->links[i]->in == irq) {
+			twi_bus->links[i]->msg = msg;
+			twi_bus->nb_resp++;
+			break;
+		}
+	}
+
+	// enough responses ?
+	if (twi_bus->nb_resp == twi_bus->resp_quota) {
+		// arbitrate responses and send the best
+		msg = twi_bus_arbitrate(twi_bus);
+		twi_bus_response(twi_bus, msg);
+	}
 }
 
 // twi bus logic: where messages are dispatched and arbritration is done
@@ -151,32 +164,48 @@ static void twi_bus_logic(struct avr_irq_t* irq, uint32_t value, void* param)
 	avr_twi_msg_irq_t msg;
 	msg.v = value;
 
-	//twi_bus_trace(__func__, msg, msg.bus.addr, twi_bus);
+	twi_bus_trace(__func__, msg, msg.bus.addr, twi_bus);
 
-	// forwarding is ongoing ?
-	if (twi_bus->reentry_lock) {
+	// waiting response(s) ?
+	if (twi_bus->nb_resp < twi_bus->resp_quota) {
 		// store message
 		twi_bus_store(twi_bus, irq, msg);
 		return;
 	}
 
-	// new exchange ?
-	twi_bus->reentry_lock = 1;
-	if (!twi_bus->origin) {
-		// find associated link and save it
-		for (int i = 0; i < twi_bus->nb_links; i++) {
-			if (twi_bus->links[i]->in == irq) {
-				twi_bus->origin = twi_bus->links[i];
-				twi_bus->origin->msg = msg;
-				break;
-			}
+	// new exchange
+	twi_bus->nb_resp = 0;
+	// find associated link and save it
+	for (int i = 0; i < twi_bus->nb_links; i++) {
+		if (twi_bus->links[i]->in == irq) {
+			twi_bus->origin = twi_bus->links[i];
+			twi_bus->origin->msg = msg;
+			break;
 		}
 	}
 
-	// forward to other nodes, arbitrate responses and send the best
+	// set conditions for response
+	switch (msg.bus.msg) {
+	case TWI_MSG_START:
+	case TWI_MSG_STOP:
+	case TWI_MSG_ACK:
+	case TWI_MSG_NACK:
+	case TWI_MSG_NULL:
+		twi_bus->resp_quota = 0;
+		break;
+
+	case TWI_MSG_ADDR:
+	case TWI_MSG_CLK:
+		twi_bus->resp_quota = 1;
+		break;
+
+	case TWI_MSG_DATA:
+		twi_bus->resp_quota = twi_bus->nb_links - 1;
+		break;
+	}
+
+	// forward to other nodes
 	twi_bus_dispatch(twi_bus, msg);
-	msg = twi_bus_arbitrate(twi_bus);
-	twi_bus_response(twi_bus, msg);
 }
 
 
@@ -195,6 +224,7 @@ struct twi_bus_t* twi_bus_alloc(avr_t** cores, int nb_cores)
 	// monitor core out irq
 	avr_irq_t* core_out_irq;
 	avr_irq_t* core_in_irq;
+	avr_twi_msg_irq_t msg = avr_twi_irq_msg(TWI_MSG_NULL, 0);
 	char name[64];
 
 	for (int i = 0; i < nb_cores; i++) {
@@ -205,6 +235,7 @@ struct twi_bus_t* twi_bus_alloc(avr_t** cores, int nb_cores)
 		twi_bus->links[i] = link;
 		twi_bus->links[i]->in = core_out_irq;
 		twi_bus->links[i]->out = core_in_irq;
+		twi_bus->links[i]->msg = msg;
 
 		avr_irq_register_notify(core_out_irq, twi_bus_logic, twi_bus);
 		sprintf(name, "core[%d]", i);
