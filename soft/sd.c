@@ -235,6 +235,8 @@ int main(void)
 	NAT_init();
 	CPU_init();
 
+	SLP_register();	// prevent any sleep mode
+
 	while (1) {
 		// run every common module
 		DPT_run();

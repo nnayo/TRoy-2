@@ -241,6 +241,8 @@ int main(void)
 	MPU_init();
 	TKF_init();
 
+	SLP_register();	// prevent any sleep mode
+
 	while (1) {
 		// run every common module
 		DPT_run();
