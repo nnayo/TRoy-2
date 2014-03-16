@@ -95,6 +95,10 @@ typedef enum {
    	SC18_SPI_IRQ_COUNT,
 } _sc18_spi_irq_t;
 
+#define YELLOW_COLOR	"\x1b[93m"
+#define PURPLE_COLOR	"\x1b[95m"
+#define NORMAL_COLOR	"\x1b[0m"
+
 
 //--------------------------------------------------------------------
 // private constants
@@ -585,7 +589,7 @@ static void sc18_spi_cs_hook(struct avr_irq_t * irq, uint32_t value, void * para
 
 	sc18is600_t * sc18 = (sc18is600_t*)param;
 
-	printf("[%s] %s CS:%d st:%d\n", sc18->avr->tag_name, __func__, sc18->cs, sc18->step);
+	printf("["YELLOW_COLOR"%s"NORMAL_COLOR"] %s CS:%d st:%d\n", sc18->avr->tag_name, __func__, sc18->cs, sc18->step);
 
 	sc18->cs = value & SC18_CS_PB0;
 
