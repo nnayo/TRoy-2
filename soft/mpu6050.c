@@ -32,7 +32,7 @@
 //
 
 // uncomment the define below to use the SC18IS600 SPI-I2C bridge
-//#define USE_SC18IS600
+#define USE_SC18IS600
 
 #ifdef USE_SC18IS600
 # include "sc18is600.h"
