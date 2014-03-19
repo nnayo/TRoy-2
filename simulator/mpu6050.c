@@ -117,6 +117,20 @@ static struct {
 	struct simu_profil_t * profil;
 } simu;
 
+# define BRIGTH_COLOR   "\x1b[95m"
+# define NORMAL_COLOR   "\x1b[0m"
+
+static char* msg2chr[] = {
+	BRIGTH_COLOR"0"NORMAL_COLOR,
+	BRIGTH_COLOR"["NORMAL_COLOR,
+	BRIGTH_COLOR"@"NORMAL_COLOR,
+	BRIGTH_COLOR"D"NORMAL_COLOR,
+	BRIGTH_COLOR"+"NORMAL_COLOR,
+	BRIGTH_COLOR"-"NORMAL_COLOR,
+	BRIGTH_COLOR"w"NORMAL_COLOR,
+	BRIGTH_COLOR"]"NORMAL_COLOR
+};
+
 
 //--------------------------------------------------------------------
 // private variables
@@ -217,6 +231,8 @@ static void mpu6050_i2c_in_hook(struct avr_irq_t * irq, uint32_t value, void * p
 
 	msg.v = value;
 
+	printf("MPU:%s msg %s  addr 0x%02x+%c / data 0x%02x", __func__, msg2chr[msg.bus.msg], msg.bus.data >> 1, msg.bus.data & 0x01 ? 'R' : 'W', msg.bus.data);
+
 	switch (mpu->state) {
 	case MPU_FSM_IDLE:
 		// start while really idle ?
@@ -229,6 +245,7 @@ static void mpu6050_i2c_in_hook(struct avr_irq_t * irq, uint32_t value, void * p
 		if (msg.bus.msg == TWI_MSG_STOP) {
 			mpu->bus = 0;
 		}
+		printf("\n");
 		break;
 
 	case MPU_FSM_STARTED:
@@ -257,6 +274,7 @@ static void mpu6050_i2c_in_hook(struct avr_irq_t * irq, uint32_t value, void * p
 			avr_raise_irq(mpu->irq + MPU_IRQ_OUT, msg.v);
 			mpu->state = MPU_FSM_IDLE;
 		}
+		printf("\n");
 		break;
 
 	case MPU_FSM_MTX:
@@ -278,6 +296,7 @@ static void mpu6050_i2c_in_hook(struct avr_irq_t * irq, uint32_t value, void * p
 		// ack
 		msg = avr_twi_irq_msg(TWI_MSG_ACK, mpu->self_addr);
 		avr_raise_irq(mpu->irq + MPU_IRQ_OUT, msg.v);
+		printf("\n");
 		break;
 
 	case MPU_FSM_MRX:
@@ -285,7 +304,7 @@ static void mpu6050_i2c_in_hook(struct avr_irq_t * irq, uint32_t value, void * p
 		if (msg.bus.msg == TWI_MSG_NACK) {
 			// abort transfert
 			mpu->state = MPU_FSM_IDLE;
-			return;
+			break;
 		}
 
 		// else ack receie
@@ -299,11 +318,16 @@ static void mpu6050_i2c_in_hook(struct avr_irq_t * irq, uint32_t value, void * p
 			break;
 		}
 
+		printf("\n");
         // send the data
 		avr_raise_irq(mpu->irq + MPU_IRQ_OUT, msg.v);
 
         // increment register pointer
 		mpu->current_reg++;
+		break;
+
+	default:
+		printf("\n");
 		break;
 	}
 }
