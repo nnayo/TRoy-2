@@ -41,6 +41,12 @@
 // private defines
 //
 
+// green led bit
+#define SC18_GREEN_LED	0x20
+
+// yellow led bit
+#define SC18_YELLOW_LED	0x10
+
 // use an unused I2C address for SC18IS600 self address
 #define SC18_I2C_ADDR	0x77
 
@@ -122,6 +128,9 @@ PT_THREAD( SC18IS600_init(pt_t* pt) )
 	// init SPI bus
 	// SPI link configuration (SC18IS600 : spi mode 3, MSB first, 1 MHz)
 	SPI_init(SPI_MASTER, SPI_THREE, SPI_MSB, SPI_DIV_16);
+
+	// turn green led ON
+	PT_SPAWN(pt, &SC18.pt, SC18IS600_reg_set(&SC18.pt, SC18_OFFSET(io_state), SC18_GREEN_LED));
 
 	// set own I2C address
 	PT_SPAWN(pt, &SC18.pt, SC18IS600_reg_set(&SC18.pt, SC18_OFFSET(i2c_addr), SC18_I2C_ADDR));
