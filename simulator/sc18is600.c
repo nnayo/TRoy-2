@@ -67,7 +67,7 @@ typedef enum {
 } sc18_cmd_t;
 
 typedef enum {
-    SC18_FROM_CS_HOOK,
+    SC18_FROM_SPI_HOOK,
     SC18_FROM_I2C_HOOK,
 } sc18_hook_t;
 
@@ -111,6 +111,20 @@ static const char* const reg_name[] = {
 	"I2CTO   ",
 	"I2CStat ",
 	"I2CAddr ",
+};
+
+# define BRIGTH_COLOR   "\x1b[95m"
+# define NORMAL_COLOR   "\x1b[0m"
+
+static char* msg2chr[] = {
+	BRIGTH_COLOR"0"NORMAL_COLOR,
+	BRIGTH_COLOR"["NORMAL_COLOR,
+	BRIGTH_COLOR"@"NORMAL_COLOR,
+	BRIGTH_COLOR"D"NORMAL_COLOR,
+	BRIGTH_COLOR"+"NORMAL_COLOR,
+	BRIGTH_COLOR"-"NORMAL_COLOR,
+	BRIGTH_COLOR"w"NORMAL_COLOR,
+	BRIGTH_COLOR"]"NORMAL_COLOR
 };
 
 
@@ -164,7 +178,7 @@ typedef struct sc18is600_t {
 // write n bytes to I2C-bus slave device
 static void sc18_wr_n(sc18is600_t * sc18, sc18_hook_t hook)
 {
-	printf("SC18:["YELLOW_COLOR"%s"NORMAL_COLOR"] %s CS:%d st:%d\n", sc18->avr->tag_name, __func__, sc18->cs, sc18->step);
+	printf("SC18: ["YELLOW_COLOR"%s"NORMAL_COLOR"] %s src:%s CS:%d st:%d\n", sc18->avr->tag_name, __func__, (hook == SC18_FROM_I2C_HOOK) ? "I2C" : "SPI", sc18->cs, sc18->step);
 
 	avr_twi_msg_irq_t msg;
 
@@ -175,13 +189,22 @@ static void sc18_wr_n(sc18is600_t * sc18, sc18_hook_t hook)
 
 	// step #0 is setting the command
 	if ( sc18->step == 0 ) {
+        // send the I2C start
+        msg = avr_twi_irq_msg(TWI_MSG_START, 0);
+        avr_raise_irq(sc18->i2c_irq + SC18_I2C_IRQ_OUT, msg.v);
+        sc18->step++;
+        return;
+    }
+
+	// step #1 is setting the address
+	if ( sc18->step == 1 ) {
         // prepare algo conditions
         sc18->wr_n.index = 3;
         sc18->wr_n.len = sc18->tx_buf[1];
         sc18->wr_n.i2c_addr = sc18->tx_buf[2];
 
-        // send the I2C start
-        msg = avr_twi_irq_msg(TWI_MSG_START, 0);
+        // send the I2C address
+        msg = avr_twi_irq_msg(TWI_MSG_ADDR, sc18->wr_n.i2c_addr);
         avr_raise_irq(sc18->i2c_irq + SC18_I2C_IRQ_OUT, msg.v);
         sc18->step++;
         return;
@@ -213,7 +236,7 @@ static void sc18_wr_n(sc18is600_t * sc18, sc18_hook_t hook)
 
     // some boundary checks
     if ( sc18->wr_n.index > SC18_TX_BUF_SIZE ) {
-        printf("SC18:buffer overflow %02d\n", sc18->wr_n.index);
+        printf("SC18: buffer overflow %02d\n", sc18->wr_n.index);
 
         // force I2C stop
         msg = avr_twi_irq_msg(TWI_MSG_STOP, sc18->wr_n.i2c_addr);
@@ -229,27 +252,39 @@ static void sc18_wr_n(sc18is600_t * sc18, sc18_hook_t hook)
 // read n bytes to I2C-bus slave device
 static void sc18_rd_n(sc18is600_t * sc18, sc18_hook_t hook, uint32_t value)
 {
-	printf("SC18:["YELLOW_COLOR"%s"NORMAL_COLOR"] %s CS:%d st:%d\n", sc18->avr->tag_name, __func__, sc18->cs, sc18->step);
+	printf("SC18: ["YELLOW_COLOR"%s"NORMAL_COLOR"] %s src:%s CS:%d st:%d\t", sc18->avr->tag_name, __func__, (hook == SC18_FROM_I2C_HOOK) ? "I2C" : "SPI", sc18->cs, sc18->step);
 
 	avr_twi_msg_irq_t msg = { .v = value };
 
     if ( hook == SC18_FROM_I2C_HOOK ) {
         // when I2C slave is responding
+		printf("msg %s  addr 0x%02x+%c / data 0x%02x\n", msg2chr[msg.bus.msg], msg.bus.data >> 1, msg.bus.data & 0x01 ? 'R' : 'W', msg.bus.data);
 
         // only store the received data
         sc18->rx_buf[sc18->rd_n.index] = msg.bus.data;
         return;
     }
 
-	// step #0 is setting the command
+	printf("\n");
+
+	// step #0: start
 	if ( sc18->step == 0 ) {
+        // send the I2C start
+        msg = avr_twi_irq_msg(TWI_MSG_START, 0);
+        avr_raise_irq(sc18->i2c_irq + SC18_I2C_IRQ_OUT, msg.v);
+        sc18->step++;
+        return;
+    }
+
+	// step #1: address
+	if ( sc18->step == 1 ) {
         // prepare algo conditions
         sc18->rd_n.index = 0;
         sc18->rd_n.len = sc18->tx_buf[1];
         sc18->rd_n.i2c_addr = sc18->tx_buf[2];
 
-        // send the I2C start
-        msg = avr_twi_irq_msg(TWI_MSG_START, 0);
+        // send the I2C addr
+        msg = avr_twi_irq_msg(TWI_MSG_ADDR, sc18->rd_n.i2c_addr);
         avr_raise_irq(sc18->i2c_irq + SC18_I2C_IRQ_OUT, msg.v);
         sc18->step++;
         return;
@@ -258,7 +293,7 @@ static void sc18_rd_n(sc18is600_t * sc18, sc18_hook_t hook, uint32_t value)
     // receive each byte to rx buffer
     if ( sc18->rd_n.len )  {
         // request data from I2C component
-        msg = avr_twi_irq_msg(TWI_MSG_ACK, 0);
+        msg = avr_twi_irq_msg(TWI_MSG_CLK, 0);
         avr_raise_irq(sc18->i2c_irq + SC18_I2C_IRQ_OUT, msg.v);
 
         // update conditions
@@ -281,7 +316,7 @@ static void sc18_rd_n(sc18is600_t * sc18, sc18_hook_t hook, uint32_t value)
 
     // some boundary checks
     if ( sc18->wr_n.index > SC18_TX_BUF_SIZE ) {
-        printf("SC18:buffer overflow %02d\n", sc18->wr_n.index);
+        printf("SC18: buffer overflow %02d\n", sc18->wr_n.index);
 
         // force the I2C stop
         msg = avr_twi_irq_msg(TWI_MSG_STOP, 0);
@@ -297,11 +332,11 @@ static void sc18_rd_n(sc18is600_t * sc18, sc18_hook_t hook, uint32_t value)
 // I2C-bus write then read (read after write)
 static void sc18_wr_rd(sc18is600_t * sc18, sc18_hook_t hook)
 {
-	printf("SC18:["YELLOW_COLOR"%s"NORMAL_COLOR"] %s CS:%d st:%d\n", sc18->avr->tag_name, __func__, sc18->cs, sc18->step);
+	printf("SC18: ["YELLOW_COLOR"%s"NORMAL_COLOR"] %s CS:%d st:%d\n", sc18->avr->tag_name, __func__, sc18->cs, sc18->step);
 
 	(void)hook;
 
-    printf("SC18:not implemented yet! ");
+    printf("SC18: not implemented yet! ");
     sc18->fini = 1;
 
 	// step #0 is the command
@@ -311,7 +346,7 @@ static void sc18_wr_rd(sc18is600_t * sc18, sc18_hook_t hook)
 
     // next steps up to limit are for writing the buffer
     if ( sc18->step > SC18_TX_BUF_SIZE ) {
-        printf("SC18:too many data %d ", sc18->step);
+        printf("SC18: too many data %d ", sc18->step);
         return;
     }
 }
@@ -343,11 +378,11 @@ static uint8_t sc18_rd_buf(uint8_t value, sc18is600_t * sc18)
 // I2C-bus write after write
 static void sc18_wr_wr(sc18is600_t * sc18, sc18_hook_t hook)
 {
-	printf("SC18:["YELLOW_COLOR"%s"NORMAL_COLOR"] %s CS:%d st:%d\n", sc18->avr->tag_name, __func__, sc18->cs, sc18->step);
+	printf("SC18: ["YELLOW_COLOR"%s"NORMAL_COLOR"] %s CS:%d st:%d\n", sc18->avr->tag_name, __func__, sc18->cs, sc18->step);
 
 	(void)hook;
 
-    printf("SC18:not implemented yet! ");
+    printf("SC18: not implemented yet! ");
     sc18->fini = 1;
 
 	// step #0 is the command
@@ -357,7 +392,7 @@ static void sc18_wr_wr(sc18is600_t * sc18, sc18_hook_t hook)
 
     // next steps up to limit are for sending the buffer
     if ( sc18->step > SC18_TX_BUF_SIZE ) {
-        printf("SC18:write after write: too many data %d\n", sc18->step);
+        printf("SC18: write after write: too many data %d\n", sc18->step);
     }
 }
 
@@ -365,7 +400,7 @@ static void sc18_wr_wr(sc18is600_t * sc18, sc18_hook_t hook)
 // SPI configuration
 static uint8_t sc18_conf(uint8_t value, sc18is600_t * sc18)
 {
-	printf("SC18:["YELLOW_COLOR"%s"NORMAL_COLOR"] %s CS:%d st:%d\n", sc18->avr->tag_name, __func__, sc18->cs, sc18->step);
+	printf("SC18: ["YELLOW_COLOR"%s"NORMAL_COLOR"] %s CS:%d st:%d\n", sc18->avr->tag_name, __func__, sc18->cs, sc18->step);
 
 	switch (sc18->step) {
 	case 0:
@@ -376,22 +411,22 @@ static uint8_t sc18_conf(uint8_t value, sc18is600_t * sc18)
 		// which configuration?
 		switch (value) {
 		case SC18_SPI_CONF_LSB:
-			printf("SC18:conf LSB first ");
+			printf("SC18: conf LSB first ");
 			break;
 
 		case SC18_SPI_CONF_MSB:
-			printf("SC18:conf MSB first ");
+			printf("SC18: conf MSB first ");
 			break;
 
 		default:
-			printf("SC18:unknown conf 0x%02x ", value);
+			printf("SC18: unknown conf 0x%02x ", value);
 			break;
 		}
 
 		break;
 
 	default:
-		printf("SC18:conf invalid step %02d ", sc18->step);
+		printf("SC18: conf invalid step %02d ", sc18->step);
 		break;
 	}
 
@@ -420,13 +455,13 @@ static uint8_t sc18_wr_reg(uint8_t value, sc18is600_t * sc18)
 		break;
 
 	case 2:
-		printf("           ");
+		printf("    0x%02x   ", value);
 		// register value is received
 		*((uint8_t*)&sc18->regs + sc18->reg_offset) = value;
 		break;
 
 	default:
-		printf("SC18:wr_reg invalid step %02d ", sc18->step);
+		printf("SC18: wr_reg invalid step %02d ", sc18->step);
 		break;
 	}
 
@@ -437,7 +472,7 @@ static uint8_t sc18_wr_reg(uint8_t value, sc18is600_t * sc18)
 // power-down mode
 static uint8_t sc18_pwr(uint8_t value, sc18is600_t * sc18)
 {
-	printf("SC18:["YELLOW_COLOR"%s"NORMAL_COLOR"] %s CS:%d st:%d\n", sc18->avr->tag_name, __func__, sc18->cs, sc18->step);
+	printf("SC18: ["YELLOW_COLOR"%s"NORMAL_COLOR"] %s CS:%d st:%d\n", sc18->avr->tag_name, __func__, sc18->cs, sc18->step);
 
 	// sequence 0x30 0x5a 0xa5
 	switch (sc18->step) {
@@ -487,9 +522,10 @@ static uint8_t sc18_rd_reg(uint8_t value, sc18is600_t * sc18)
 		break;
 
 	case 2:
-		printf("           ");
-		// register value is received
-		return *((uint8_t*)&sc18->regs + sc18->reg_offset);
+		value = *((uint8_t*)&sc18->regs + sc18->reg_offset);
+		printf("    0x%02x   ", value);
+		// register value is sent
+		return value;
 		break;
 
 	default:
@@ -509,7 +545,7 @@ static void sc18_spi_hook(struct avr_irq_t * irq, uint32_t value, void * param)
 	uint8_t resp;
 	sc18is600_t * sc18 = (sc18is600_t*)param;
 
-	printf("SC18:["YELLOW_COLOR"%s"NORMAL_COLOR"] %s CS:%d st:%d", sc18->avr->tag_name, __func__, sc18->cs, sc18->step);
+	printf("SC18: ["YELLOW_COLOR"%s"NORMAL_COLOR"] %s CS:%d st:%d", sc18->avr->tag_name, __func__, sc18->cs, sc18->step);
 
 	// check if chip is selected
 	if ( sc18->cs == 1 ) {
@@ -587,7 +623,7 @@ static void sc18_spi_cs_hook(struct avr_irq_t * irq, uint32_t value, void * para
 
 	sc18is600_t * sc18 = (sc18is600_t*)param;
 
-	printf("SC18:["YELLOW_COLOR"%s"NORMAL_COLOR"] %s CS:%d st:%d\n", sc18->avr->tag_name, __func__, sc18->cs, sc18->step);
+	printf("SC18: ["YELLOW_COLOR"%s"NORMAL_COLOR"] %s CS:%d st:%d\n", sc18->avr->tag_name, __func__, sc18->cs, sc18->step);
 
 	sc18->cs = value & SC18_CS_PB0;
 
@@ -606,19 +642,19 @@ static void sc18_spi_cs_hook(struct avr_irq_t * irq, uint32_t value, void * para
     while ( ! sc18->fini ) {
         switch (sc18->cmd) {
         case SC18_WR_N:
-            sc18_wr_n(sc18, SC18_FROM_CS_HOOK);
+            sc18_wr_n(sc18, SC18_FROM_SPI_HOOK);
             break;
 
         case SC18_RD_N:
-            sc18_rd_n(sc18, SC18_FROM_CS_HOOK, value);
+            sc18_rd_n(sc18, SC18_FROM_SPI_HOOK, value);
             break;
 
         case SC18_WR_RD:
-            sc18_wr_rd(sc18, SC18_FROM_CS_HOOK);
+            sc18_wr_rd(sc18, SC18_FROM_SPI_HOOK);
             break;
 
         case SC18_WR_WR:
-            sc18_wr_wr(sc18, SC18_FROM_CS_HOOK);
+            sc18_wr_wr(sc18, SC18_FROM_SPI_HOOK);
             break;
 
         case SC18_RD_BUF:
@@ -646,7 +682,7 @@ static void sc18_i2c_hook(struct avr_irq_t * irq, uint32_t value, void * param)
 
 	sc18is600_t * sc18 = (sc18is600_t*)param;
 
-	printf("SC18:["YELLOW_COLOR"%s"NORMAL_COLOR"] %s CS:%d st:%d\n", sc18->avr->tag_name, __func__, sc18->cs, sc18->step);
+	printf("SC18: ["YELLOW_COLOR"%s"NORMAL_COLOR"] %s CS:%d st:%d\n", sc18->avr->tag_name, __func__, sc18->cs, sc18->step);
 
     // continue the requested I2C transaction
     switch (sc18->cmd) {

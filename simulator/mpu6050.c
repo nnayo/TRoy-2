@@ -231,7 +231,7 @@ static void mpu6050_i2c_in_hook(struct avr_irq_t * irq, uint32_t value, void * p
 
 	msg.v = value;
 
-	printf("MPU:%s msg %s  addr 0x%02x+%c / data 0x%02x", __func__, msg2chr[msg.bus.msg], msg.bus.data >> 1, msg.bus.data & 0x01 ? 'R' : 'W', msg.bus.data);
+	printf("MPU: %s st:%d msg %s  addr 0x%02x+%c / data 0x%02x", __func__, mpu->state, msg2chr[msg.bus.msg], msg.bus.data >> 1, msg.bus.data & 0x01 ? 'R' : 'W', msg.bus.data);
 
 	switch (mpu->state) {
 	case MPU_FSM_IDLE:
@@ -251,6 +251,7 @@ static void mpu6050_i2c_in_hook(struct avr_irq_t * irq, uint32_t value, void * p
 	case MPU_FSM_STARTED:
 		// self address received ?
 		if (msg.bus.msg == TWI_MSG_ADDR && (mpu->self_addr << 1) == (msg.bus.addr & 0xfe)) {
+			printf("\n");
 			// ack
 			msg = avr_twi_irq_msg(TWI_MSG_ACK, mpu->self_addr);
 			avr_raise_irq(mpu->irq + MPU_IRQ_OUT, msg.v);
@@ -269,12 +270,12 @@ static void mpu6050_i2c_in_hook(struct avr_irq_t * irq, uint32_t value, void * p
 		}
 		// bad address !
 		else {
+			printf("\n");
 			// nack
 			msg = avr_twi_irq_msg(TWI_MSG_NACK, mpu->self_addr);
 			avr_raise_irq(mpu->irq + MPU_IRQ_OUT, msg.v);
 			mpu->state = MPU_FSM_IDLE;
 		}
-		printf("\n");
 		break;
 
 	case MPU_FSM_MTX:
@@ -292,11 +293,11 @@ static void mpu6050_i2c_in_hook(struct avr_irq_t * irq, uint32_t value, void * p
 			// and points to next register
 			mpu->current_reg++;
 		}
+		printf("\n");
 
 		// ack
 		msg = avr_twi_irq_msg(TWI_MSG_ACK, mpu->self_addr);
 		avr_raise_irq(mpu->irq + MPU_IRQ_OUT, msg.v);
-		printf("\n");
 		break;
 
 	case MPU_FSM_MRX:
@@ -347,7 +348,7 @@ struct mpu6050_t* mpu6050_alloc(struct avr_t * avr, uint8_t addr, struct sc18is6
 	memset(mpu, 0, sizeof(mpu6050_t));
 
 	mpu->avr = avr;
-	mpu->self_addr = addr;
+	mpu->self_addr = addr << 1;
 
     // create the irqs
 	mpu->irq = avr_alloc_irq(&avr->irq_pool, MPU_IRQ_IN, MPU_IRQ_COUNT, mpu_irq_names);
