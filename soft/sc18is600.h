@@ -50,7 +50,7 @@
 // public functions
 //
 
-// initialization of the W5100 component
+// initialization of the SC18IS600 component
 extern PT_THREAD( SC18IS600_init(pt_t* pt));
 
 
