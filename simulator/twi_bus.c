@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <fcntl.h>	// open()
+#include <unistd.h>	// write()
 
 #include "twi_bus.h"
 
@@ -29,6 +31,9 @@ typedef struct twi_bus_t {
 
 	// VCD tracing
 	avr_vcd_t vcd;
+
+	// TWI frame log
+	int frame_log;
 } twi_bus_t;
 
 static char msg2chr[] = { '0', '[', '@', 'D', '+', '-', 'w', ']' };
@@ -56,6 +61,33 @@ static void twi_bus_trace(const char* fname, avr_twi_msg_irq_t msg, uint8_t addr
 static void twi_bus_dispatch(struct twi_bus_t* twi_bus, avr_twi_msg_irq_t msg)
 {
 	twi_bus_trace(__func__, msg, twi_bus->origin->msg.bus.addr, twi_bus);
+
+	write(twi_bus->frame_log, (const void *)&msg2chr[msg.bus.msg], 1);
+	switch (msg.bus.msg) {
+	char buf[64];
+	case TWI_MSG_START:
+		break;
+
+	case TWI_MSG_ADDR:
+		snprintf(buf, sizeof(buf) - 1, "0x%02x", msg.bus.addr >> 1);
+		write(twi_bus->frame_log, (const void *)buf, strlen(buf));
+		if (msg.bus.addr & 0x01) {
+			write(twi_bus->frame_log, (const void *)"R ", 2);
+		}
+		else {
+			write(twi_bus->frame_log, (const void *)"W ", 2);
+		}
+		break;
+
+	case TWI_MSG_DATA:
+		snprintf(buf, sizeof(buf) - 1, "0x%02x ", msg.bus.data);
+		write(twi_bus->frame_log, (const void *)buf, strlen(buf));
+		break;
+
+	case TWI_MSG_STOP:
+		write(twi_bus->frame_log, (const void *)"\n", 1);
+		break;
+	}
 
 	for (int i = 0; i < twi_bus->nb_links; i++) {
 		if (twi_bus->links[i] == twi_bus->origin) {
@@ -218,6 +250,8 @@ struct twi_bus_t* twi_bus_alloc(avr_t** cores, int nb_cores)
 	twi_bus->links = (struct twi_link_t**)malloc(nb_cores * sizeof(struct twi_link_t*));
 
 	avr_vcd_init(cores[0], "twi_bus.vcd", &twi_bus->vcd, 100);
+
+	twi_bus->frame_log = open("twi_frame.log", O_WRONLY | O_CREAT | O_SYNC | O_TRUNC);
 
 	// save connection core out irq to bus in irq
 	// save connection core in irq to bus out irq
