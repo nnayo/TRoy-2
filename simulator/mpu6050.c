@@ -348,7 +348,7 @@ struct mpu6050_t* mpu6050_alloc(struct avr_t * avr, uint8_t addr, struct sc18is6
 	memset(mpu, 0, sizeof(mpu6050_t));
 
 	mpu->avr = avr;
-	mpu->self_addr = addr << 1;
+	mpu->self_addr = addr;
 
     // create the irqs
 	mpu->irq = avr_alloc_irq(&avr->irq_pool, MPU_IRQ_IN, MPU_IRQ_COUNT, mpu_irq_names);
