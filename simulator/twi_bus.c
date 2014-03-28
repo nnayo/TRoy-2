@@ -28,6 +28,9 @@ typedef struct twi_bus_t {
 	struct twi_link_t* origin;	// origin link is the only one not having to response
 	int resp_quota;
 	int nb_resp;
+	int gencall;
+	int gencall_nack;
+	int read_mode;
 
 	// VCD tracing
 	avr_vcd_t vcd;
@@ -53,22 +56,21 @@ static void twi_bus_trace(const char* fname, avr_twi_msg_irq_t msg, uint8_t addr
 		printf(PURPLE_COLOR"%c  0x%02x"NORMAL_COLOR, msg2chr[msg.bus.msg], addr);
 	}
 
-	printf("  org:%p, qt:%d rp:%d (t=%d)\n", bus->origin, bus->resp_quota, bus->nb_resp, (int)bus->vcd.avr->cycle);
+	printf("  org:%p, qt:%d rp:%d gc:%d gcn:%d (t=%d)\n", bus->origin, bus->resp_quota, bus->nb_resp, bus->gencall, bus->gencall_nack, (int)bus->vcd.avr->cycle);
 }
 
 
-// dispatch message to every nodes except sender
-static void twi_bus_dispatch(struct twi_bus_t* twi_bus, avr_twi_msg_irq_t msg)
+static void twi_bus_frame_log(void* caller)
 {
-	twi_bus_trace(__func__, msg, twi_bus->origin->msg.bus.addr, twi_bus);
-
-	write(twi_bus->frame_log, (const void *)&msg2chr[msg.bus.msg], 1);
-	switch (msg.bus.msg) {
 	char buf[64];
+
+	switch (msg.bus.msg) {
 	case TWI_MSG_START:
+		write(twi_bus->frame_log, (const void *)&msg2chr[msg.bus.msg], 1);
 		break;
 
 	case TWI_MSG_ADDR:
+		write(twi_bus->frame_log, (const void *)&msg2chr[msg.bus.msg], 1);
 		snprintf(buf, sizeof(buf) - 1, "0x%02x", msg.bus.addr >> 1);
 		write(twi_bus->frame_log, (const void *)buf, strlen(buf));
 		if (msg.bus.addr & 0x01) {
@@ -80,14 +82,23 @@ static void twi_bus_dispatch(struct twi_bus_t* twi_bus, avr_twi_msg_irq_t msg)
 		break;
 
 	case TWI_MSG_DATA:
+		write(twi_bus->frame_log, (const void *)&msg2chr[msg.bus.msg], 1);
 		snprintf(buf, sizeof(buf) - 1, "0x%02x ", msg.bus.data);
 		write(twi_bus->frame_log, (const void *)buf, strlen(buf));
 		break;
 
 	case TWI_MSG_STOP:
+		write(twi_bus->frame_log, (const void *)&msg2chr[msg.bus.msg], 1);
 		write(twi_bus->frame_log, (const void *)"\n", 1);
 		break;
 	}
+
+}
+
+// dispatch message to every nodes except sender
+static void twi_bus_dispatch(struct twi_bus_t* twi_bus, avr_twi_msg_irq_t msg)
+{
+	twi_bus_trace(__func__, msg, twi_bus->origin->msg.bus.addr, twi_bus);
 
 	for (int i = 0; i < twi_bus->nb_links; i++) {
 		if (twi_bus->links[i] == twi_bus->origin) {
@@ -159,7 +170,7 @@ static struct avr_twi_msg_irq_t twi_bus_arbitrate(struct twi_bus_t* twi_bus)
 	return rsp_msg;
 }
 
-// response message to all links expect origin
+// response message to origin only
 static void twi_bus_response(struct twi_bus_t* twi_bus, avr_twi_msg_irq_t msg)
 {
 	twi_bus_trace(__func__, msg, msg.bus.addr, twi_bus);
@@ -180,8 +191,13 @@ static void twi_bus_store(struct twi_bus_t* twi_bus, struct avr_irq_t* irq, avr_
 		}
 	}
 
+	if (twi_bus->origin->msg.bus.msg == TWI_MSG_ADDR && twi_bus->gencall && msg.bus.msg == TWI_MSG_NACK) {
+		twi_bus->gencall_nack++;
+		twi_bus->nb_resp--;
+	}
+
 	// enough responses ?
-	if (twi_bus->nb_resp == twi_bus->resp_quota) {
+	if (twi_bus->nb_resp == twi_bus->resp_quota - twi_bus->gencall_nack) {
 		// arbitrate responses and send the best
 		msg = twi_bus_arbitrate(twi_bus);
 		twi_bus_response(twi_bus, msg);
@@ -199,7 +215,7 @@ static void twi_bus_logic(struct avr_irq_t* irq, uint32_t value, void* param)
 	twi_bus_trace(__func__, msg, msg.bus.addr, twi_bus);
 
 	// waiting response(s) ?
-	if (twi_bus->nb_resp < twi_bus->resp_quota) {
+	if (twi_bus->nb_resp < twi_bus->resp_quota - twi_bus->gencall_nack) {
 		// store message
 		twi_bus_store(twi_bus, irq, msg);
 		return;
@@ -219,19 +235,23 @@ static void twi_bus_logic(struct avr_irq_t* irq, uint32_t value, void* param)
 	// set conditions for response
 	switch (msg.bus.msg) {
 	case TWI_MSG_START:
+		twi_bus->read_mode = 1;
 	case TWI_MSG_STOP:
+		twi_bus->gencall = 0;
+		twi_bus->gencall_nack = 0;
 	case TWI_MSG_ACK:
 	case TWI_MSG_NACK:
 	case TWI_MSG_NULL:
 		twi_bus->resp_quota = 0;
 		break;
 
-	case TWI_MSG_ADDR:
+	case TWI_MSG_DATA:
 	case TWI_MSG_CLK:
-		twi_bus->resp_quota = 1;
+		twi_bus->resp_quota = twi_bus->gencall ? twi_bus->nb_links - 1 : 1;
 		break;
 
-	case TWI_MSG_DATA:
+	case TWI_MSG_ADDR:
+		twi_bus->gencall = (msg.bus.addr == 0x00) ? 1 : 0;
 		twi_bus->resp_quota = twi_bus->nb_links - 1;
 		break;
 	}
