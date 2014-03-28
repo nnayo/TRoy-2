@@ -54,7 +54,7 @@ int main(void)
 //	avr_t* minut_1 = avr_setup("minut_1.elf", "minut_1.vcd", gdb, 7001);
 //	avr_t* minut_2 = avr_setup("minut_2.elf", "minut_2.vcd", gdb, 7002);
 	avr_t* xbee = avr_setup("xbee.elf", "xbee.vcd", GDB_DISABLE, 7010);
-//	avr_t* sd_0 = avr_setup("sd_0.elf", "sd_0.vcd", gdb, 7020);
+	avr_t* sd_0 = avr_setup("sd_0.elf", "sd_0.vcd", GDB_DISABLE, 7020);
 //	avr_t* sd_1 = avr_setup("sd_1.elf", "sd_1.vcd", gdb, 7021);
 
 	// all cores are to be connected on I2C bus
@@ -63,7 +63,7 @@ int main(void)
 //		minut_1,
 //		minut_2,
 		xbee,
-//		sd_0,
+		sd_0,
 //		sd_1
 	};
 
@@ -103,7 +103,7 @@ int main(void)
 
 	avr_cycle_count_t common_cycle = 0;
 	avr_cycle_count_t min_cycle = 0;
-#define DISPLAY_THRESHOLD	5e6
+#define DISPLAY_THRESHOLD	8e6
 	avr_cycle_count_t common_cycle_display_trigger = DISPLAY_THRESHOLD;
 	int state;
 
