@@ -231,8 +231,7 @@ int main(void)
 	DPT_init();
 	BSC_init();
 	CMN_init();
-	DNA_init(DNA_XP);
-	NAT_init();
+	DNA_init(DNA_ST);
 	CPU_init();
 
 	SLP_register();	// prevent any sleep mode
@@ -242,7 +241,7 @@ int main(void)
 		DPT_run();
 		BSC_run();
 		CMN_run();
-		NAT_run();
+		DNA_run();
 		CPU_run();
 
 //#define DEBUG
