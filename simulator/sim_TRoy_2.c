@@ -134,7 +134,7 @@ int main(void)
 
 		// refresh common cycle display 
 		if ( common_cycle >= common_cycle_display_trigger) {
-			printf("cycle = %10ld (%9ld s)\n", (long)common_cycle, (long)(common_cycle / 16e6));
+			printf("cycle = %10ld (%9.1f s)\n", (long)common_cycle, common_cycle / 16e6);
 			common_cycle_display_trigger += DISPLAY_THRESHOLD;
 			goto exit;
 		}

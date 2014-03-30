@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>	// open()
+#include <sys/stat.h>
 #include <unistd.h>	// write()
 
 #include "twi_bus.h"
@@ -47,7 +48,7 @@ static char msg2chr[] = { '0', '[', '@', 'D', '+', '-', 'w', ']' };
 
 static void twi_bus_trace(const char* fname, avr_twi_msg_irq_t msg, uint8_t addr, struct twi_bus_t* bus)
 {
-	printf("["RED_COLOR"%s"NORMAL_COLOR"] ", fname);
+	printf("BUS: (c=%9d) ["RED_COLOR"%s"NORMAL_COLOR"] ", (int)bus->vcd.avr->cycle, fname);
 
 	if (msg.bus.msg == TWI_MSG_ADDR) {
 		printf(PURPLE_COLOR"%c  0x%02x+%c"NORMAL_COLOR, msg2chr[msg.bus.msg], addr >> 1, (addr & 1) ? 'R' : 'W');
@@ -56,12 +57,17 @@ static void twi_bus_trace(const char* fname, avr_twi_msg_irq_t msg, uint8_t addr
 		printf(PURPLE_COLOR"%c  0x%02x"NORMAL_COLOR, msg2chr[msg.bus.msg], addr);
 	}
 
-	printf("  org:%p, qt:%d rp:%d gc:%d gcn:%d (t=%d)\n", bus->origin, bus->resp_quota, bus->nb_resp, bus->gencall, bus->gencall_nack, (int)bus->vcd.avr->cycle);
+	printf("  org:%p, qt:%d rp:%d gc:%d gcn:%d\n", bus->origin, bus->resp_quota, bus->nb_resp, bus->gencall, bus->gencall_nack);
 }
 
 
-static void twi_bus_frame_log(void* caller)
+static void twi_bus_dispatch(struct twi_bus_t* twi_bus, avr_twi_msg_irq_t msg);
+static void twi_bus_response(struct twi_bus_t* twi_bus, avr_twi_msg_irq_t msg);
+
+static void twi_bus_frame_log(struct twi_bus_t* twi_bus, avr_twi_msg_irq_t msg, void* caller)
 {
+	twi_bus_trace(__func__, msg, twi_bus->origin->msg.bus.addr, twi_bus);
+
 	char buf[64];
 
 	switch (msg.bus.msg) {
@@ -73,18 +79,26 @@ static void twi_bus_frame_log(void* caller)
 		write(twi_bus->frame_log, (const void *)&msg2chr[msg.bus.msg], 1);
 		snprintf(buf, sizeof(buf) - 1, "0x%02x", msg.bus.addr >> 1);
 		write(twi_bus->frame_log, (const void *)buf, strlen(buf));
-		if (msg.bus.addr & 0x01) {
-			write(twi_bus->frame_log, (const void *)"R ", 2);
+		twi_bus->read_mode = msg.bus.addr & 0x01;
+		if (twi_bus->read_mode) {
+			write(twi_bus->frame_log, (const void *)"R", 1);
 		}
 		else {
-			write(twi_bus->frame_log, (const void *)"W ", 2);
+			write(twi_bus->frame_log, (const void *)"W", 1);
 		}
 		break;
 
 	case TWI_MSG_DATA:
-		write(twi_bus->frame_log, (const void *)&msg2chr[msg.bus.msg], 1);
-		snprintf(buf, sizeof(buf) - 1, "0x%02x ", msg.bus.data);
+		//write(twi_bus->frame_log, (const void *)&msg2chr[msg.bus.msg], 1);
+		snprintf(buf, sizeof(buf) - 1, "0x%02x", msg.bus.data);
 		write(twi_bus->frame_log, (const void *)buf, strlen(buf));
+		break;
+
+	case TWI_MSG_ACK:
+	case TWI_MSG_NACK:
+		if (caller == twi_bus_response) {
+			write(twi_bus->frame_log, (const void *)&msg2chr[msg.bus.msg], 1);
+		}
 		break;
 
 	case TWI_MSG_STOP:
@@ -92,7 +106,6 @@ static void twi_bus_frame_log(void* caller)
 		write(twi_bus->frame_log, (const void *)"\n", 1);
 		break;
 	}
-
 }
 
 // dispatch message to every nodes except sender
@@ -100,11 +113,16 @@ static void twi_bus_dispatch(struct twi_bus_t* twi_bus, avr_twi_msg_irq_t msg)
 {
 	twi_bus_trace(__func__, msg, twi_bus->origin->msg.bus.addr, twi_bus);
 
+	twi_bus_frame_log(twi_bus, msg, twi_bus_dispatch);
+
 	for (int i = 0; i < twi_bus->nb_links; i++) {
 		if (twi_bus->links[i] == twi_bus->origin) {
 			continue;
 		}
 		avr_raise_irq(twi_bus->links[i]->out, msg.v);
+
+		// force data to 0xff to ensure a correct arbitration
+		twi_bus->links[i]->msg.bus.data = 0xff;
 	}
 }
 
@@ -174,6 +192,8 @@ static struct avr_twi_msg_irq_t twi_bus_arbitrate(struct twi_bus_t* twi_bus)
 static void twi_bus_response(struct twi_bus_t* twi_bus, avr_twi_msg_irq_t msg)
 {
 	twi_bus_trace(__func__, msg, msg.bus.addr, twi_bus);
+
+	twi_bus_frame_log(twi_bus, msg, twi_bus_response);
 
 	avr_raise_irq(twi_bus->origin->out, msg.v);
 }
@@ -271,7 +291,7 @@ struct twi_bus_t* twi_bus_alloc(avr_t** cores, int nb_cores)
 
 	avr_vcd_init(cores[0], "twi_bus.vcd", &twi_bus->vcd, 100);
 
-	twi_bus->frame_log = open("twi_frame.log", O_WRONLY | O_CREAT | O_SYNC | O_TRUNC);
+	twi_bus->frame_log = open("twi_frame.log", O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
 
 	// save connection core out irq to bus in irq
 	// save connection core in irq to bus out irq
